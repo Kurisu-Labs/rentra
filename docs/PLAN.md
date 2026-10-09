@@ -4,6 +4,8 @@
 
 > **Tagline:** *"Sewa barang tanpa menitipkan KTP. Jaminanmu adalah deposit yang dikunci kode dan reputasimu sendiri."*
 >
+> **UI update:** the app uses English copy, while keeping prices in Indonesian rupiah. Explain claim windows, reputation eligibility, and test funds using the implemented contract rules.
+>
 > **Chain update:** the shipped contracts and app target **Ethereum Sepolia (chain id 11155111)**, not Base Sepolia. Deploy with `forge script script/Deploy.s.sol --rpc-url sepolia --broadcast` after setting `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY`. Privy gas sponsorship is off unless `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`.
 
 ---

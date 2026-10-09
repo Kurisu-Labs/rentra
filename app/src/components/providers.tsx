@@ -24,7 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <div className="app">
-        <main className="boot">Memuat Rentra…</main>
+        <main className="boot">Loading Rentra…</main>
       </div>
     );
   }
@@ -49,12 +49,25 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
           <div className="app">
+            <a className="skip-link" href="#main-content">
+              Skip to content
+            </a>
             <Header />
-            <main>{children}</main>
+            <main id="main-content">{children}</main>
             <footer className="footer">
-              Deposit dikunci kontrak, bukan dititip ke salah satu pihak. Hash foto hanya
-              membuktikan berkas itu sudah ada pada saat serah terima — hash tidak membuktikan
-              foto itu asli atau tidak diedit. Di mode demo, 1 hari sewa berjalan dalam 2 menit.
+              <div className="footer-inner">
+                <div>
+                  <strong>rentra.</strong>
+                  <p>Less paperwork. More possibilities.</p>
+                </div>
+                <p>
+                  Built for everyday rentals. Deposits follow the contract’s rules, including late
+                  fees and damage claims.
+                </p>
+                <span className="network-label">
+                  <span className="status-dot" /> Ethereum Sepolia · Testnet
+                </span>
+              </div>
             </footer>
           </div>
         </WagmiProvider>

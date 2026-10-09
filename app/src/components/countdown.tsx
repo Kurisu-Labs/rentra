@@ -9,13 +9,13 @@ export function Countdown({ expires }: { expires: bigint }) {
     return () => clearInterval(timer);
   }, []);
   const left = Number(expires) - now;
-  if (left <= 0) return <span>waktu pakai habis</span>;
+  if (left <= 0) return <span>Rental period ended</span>;
   const hours = Math.floor(left / 3600);
   const minutes = Math.floor((left % 3600) / 60);
   const seconds = left % 60;
   return (
     <span>
-      {hours}j {minutes}m {seconds}d
+      {hours}h {minutes}m {seconds}s
     </span>
   );
 }

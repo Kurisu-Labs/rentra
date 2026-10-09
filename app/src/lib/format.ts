@@ -1,16 +1,12 @@
 export function formatIDR(wei?: bigint | null): string {
   if (wei === undefined || wei === null) return "—";
   const whole = wei / 10n ** 18n;
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(whole);
+  return `Rp${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(whole)}`;
 }
 
 export function rpToWei(input: string): bigint {
-  const digits = input.replace(/[^\d]/g, "");
-  if (!digits) return 0n;
+  const digits = input.trim();
+  if (!/^\d+$/.test(digits)) throw new Error("Enter a whole rupiah amount using digits only.");
   return BigInt(digits) * 10n ** 18n;
 }
 
@@ -27,7 +23,7 @@ export function unixToLocalInput(unix: number): string {
 
 export function localInputToUnix(value: string): bigint {
   const ms = new Date(value).getTime();
-  if (Number.isNaN(ms)) throw new Error("Tanggal tidak valid");
+  if (Number.isNaN(ms)) throw new Error("Enter a valid date and time.");
   return BigInt(Math.floor(ms / 1000));
 }
 
@@ -35,7 +31,7 @@ export function formatWhen(unix?: bigint | number | null): string {
   if (unix === undefined || unix === null) return "—";
   const n = typeof unix === "bigint" ? Number(unix) : unix;
   if (!n) return "—";
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(n * 1000));
@@ -47,7 +43,7 @@ export function errText(error: unknown): string {
     if (typeof message === "string" && message.length > 0) return message;
   }
   if (error instanceof Error && error.message) return error.message;
-  return "Terjadi kesalahan. Coba lagi.";
+  return "Something went wrong. Please try again.";
 }
 
 export function asBigint(value: unknown): bigint | undefined {

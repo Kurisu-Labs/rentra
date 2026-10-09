@@ -2,16 +2,27 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { usePrivy } from "@privy-io/react-auth";
+import { TransactionFeedback } from "@/components/transaction-feedback";
+import { Icon } from "@/components/icon";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { useRentraTx } from "@/components/use-tx";
-import { addresses, configured, rentalEscrowAbi, rentalItemAbi, statusLabel } from "@/lib/contracts";
+import {
+  addresses,
+  configured,
+  privyConfigured,
+  rentalEscrowAbi,
+  rentalItemAbi,
+  statusLabel,
+} from "@/lib/contracts";
 import { formatIDR, formatWhen, shortAddr, tupleAt } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 
 export default function MyRentalsPage() {
   const { address } = useAccount();
   const tx = useRentraTx();
+  const { login } = usePrivy();
   const next = useReadContract({
     address: addresses.escrow,
     abi: rentalEscrowAbi,
@@ -47,7 +58,10 @@ export default function MyRentalsPage() {
     if (!row || !address) return [];
     const owner = String(tupleAt(row, 1) ?? "");
     const renter = String(tupleAt(row, 2) ?? "");
-    if (owner.toLowerCase() !== address.toLowerCase() && renter.toLowerCase() !== address.toLowerCase()) {
+    if (
+      owner.toLowerCase() !== address.toLowerCase() &&
+      renter.toLowerCase() !== address.toLowerCase()
+    ) {
       return [];
     }
     return [{ id, row, owner, renter }];
@@ -55,25 +69,78 @@ export default function MyRentalsPage() {
 
   async function claimDefault(id: bigint) {
     if (!addresses.escrow) return;
-    const data = encodeFunctionData({ abi: rentalEscrowAbi, functionName: "claimDefault", args: [id] });
+    const data = encodeFunctionData({
+      abi: rentalEscrowAbi,
+      functionName: "claimDefault",
+      args: [id],
+    });
     await tx.send(addresses.escrow, data);
   }
 
   async function finalize(id: bigint) {
     if (!addresses.escrow) return;
-    const data = encodeFunctionData({ abi: rentalEscrowAbi, functionName: "finalizeClaim", args: [id] });
+    const data = encodeFunctionData({
+      abi: rentalEscrowAbi,
+      functionName: "finalizeClaim",
+      args: [id],
+    });
     await tx.send(addresses.escrow, data);
   }
 
   return (
     <div>
-      <h1>Sewa saya</h1>
-      {!address && <p className="notice">Masuk untuk melihat sewa yang terkait dengan akun ini.</p>}
-      {demo.data === true && (
-        <p className="notice">Mode demo aktif: 1 hari pada kontrak sama dengan 2 menit di dunia nyata.</p>
+      <div className="page-heading">
+        <span className="eyebrow">From pickup to the next adventure</span>
+        <h1>Your rentals, all in one place.</h1>
+        <p>Keep track of what you’re borrowing and lending, with the next step always in reach.</p>
+      </div>
+      {!address && (
+        <div className="empty-state">
+          <Icon name="box" size={36} />
+          <h2>Your next adventure belongs here.</h2>
+          <p>Sign in to see the items you’re renting or lending.</p>
+          <button disabled={!privyConfigured} onClick={() => login()}>
+            Sign in
+          </button>
+        </div>
       )}
-      {!configured && <p className="notice warn">Kontrak belum terhubung. Daftar sewa muncul setelah deploy.</p>}
-      {configured && address && mine.length === 0 && <p className="muted">Belum ada sewa.</p>}
+      {demo.data === true && (
+        <p className="notice">
+          Demo clock is on: one rental day passes in two real minutes. Rental and claim deadlines
+          are accelerated.
+        </p>
+      )}
+      {!configured && (
+        <p className="notice warn">
+          You’re in preview mode. Your rentals will appear here when live bookings are available.
+        </p>
+      )}
+      {configured && address && (next.isLoading || reads.isLoading) && (
+        <p className="notice" role="status">
+          Loading your rentals…
+        </p>
+      )}
+      {configured && address && (next.isError || reads.isError) && (
+        <p className="notice warn" role="alert">
+          We couldn’t load your rentals. Please try again later.
+        </p>
+      )}
+      {configured &&
+        address &&
+        !next.isLoading &&
+        !reads.isLoading &&
+        !next.isError &&
+        !reads.isError &&
+        mine.length === 0 && (
+          <div className="empty-state">
+            <Icon name="box" size={36} />
+            <h2>A fresh start.</h2>
+            <p>No rentals yet. Find something for your next plan or list an item of your own.</p>
+            <Link className="button" href="/#catalog">
+              Explore the collection <Icon name="arrow" size={16} />
+            </Link>
+          </div>
+        )}
       <div className="grid">
         {mine.map(({ id, row, owner, renter }) => {
           const tokenId = tupleAt(row, 0);
@@ -94,14 +161,13 @@ export default function MyRentalsPage() {
               isOwner={isOwner}
               counterparty={isOwner ? renter : owner}
               pending={tx.pending}
-              onDefault={() => void claimDefault(id)}
-              onFinalize={() => void finalize(id)}
+              onDefault={() => void tx.run(() => claimDefault(id))}
+              onFinalize={() => void tx.run(() => finalize(id))}
             />
           );
         })}
       </div>
-      {tx.error && <p className="notice warn">{tx.error}</p>}
-      {tx.hash && <p className="hash">Tercatat {tx.hash}</p>}
+      <TransactionFeedback {...tx} />
     </div>
   );
 }
@@ -141,46 +207,52 @@ function RentalCard({
 
   return (
     <article className="card">
-      <h3>Sewa #{id.toString()}</h3>
-      <p>{isOwner ? "Kamu pemilik" : "Kamu penyewa"} · lawan {shortAddr(counterparty)}</p>
+      <h3>Rental #{id.toString()}</h3>
+      <p>
+        {isOwner ? "You’re lending" : "You’re renting"} · With {shortAddr(counterparty)}
+      </p>
       <div className="meta">
-        <span className={`pill ${status === 1 ? "ok" : status === 7 ? "bad" : "warn"}`}>{statusLabel(status)}</span>
-        <span className="pill">Sewa {formatIDR(rent)}</span>
+        <span className={`pill ${status === 1 ? "ok" : status === 7 ? "bad" : "warn"}`}>
+          {statusLabel(status)}
+        </span>
+        <span className="pill">Rent {formatIDR(rent)}</span>
         <span className="pill">Deposit {formatIDR(deposit)}</span>
       </div>
       <p className="small">
-        Selesai jadwal {formatWhen(end)}
-        {typeof expires.data === "bigint" && expires.data > 0n && (
-          <>
-            {" "}
-            · sisa pakai <Countdown expires={expires.data} />
-          </>
-        )}
+        Scheduled return: {formatWhen(end)}
+        {(status === 1 || status === 3) &&
+          typeof expires.data === "bigint" &&
+          expires.data > 0n && (
+            <>
+              {" "}
+              · Time remaining: <Countdown expires={expires.data} />
+            </>
+          )}
       </p>
       <div className="row" style={{ marginTop: 12 }}>
-        {isOwner && status === 0 && (
+        {status === 0 && (
           <Link className="button" href={`/handover/${id}`}>
-            Serah terima
+            {isOwner ? "Start handover" : "Review handover"}
           </Link>
         )}
-        {!isOwner && (status === 1 || status === 3) && (
+        {(status === 1 || status === 3) && (
           <Link className="button" href={`/return/${id}`}>
-            Kembalikan
+            {isOwner ? "Review return" : "Return item"}
           </Link>
         )}
         {(status === 2 || status === 4 || status === 5) && (
           <Link className="button secondary" href={`/return/${id}`}>
-            Klaim / selesaikan
+            Manage return & claims
           </Link>
         )}
         {isOwner && (status === 1 || status === 3) && (
           <button type="button" className="secondary" disabled={pending} onClick={onDefault}>
-            Klaim tidak kembali
+            Claim non-return
           </button>
         )}
         {(status === 2 || status === 4 || status === 5) && (
           <button type="button" className="secondary" disabled={pending} onClick={onFinalize}>
-            Selesaikan
+            Release / settle funds
           </button>
         )}
       </div>

@@ -30,7 +30,8 @@ export const permitTypes = {
 } as const;
 
 export function escrowDomain() {
-  if (!addresses.escrow) throw new Error("Alamat escrow belum diisi");
+  if (!addresses.escrow)
+    throw new Error("Rental bookings are unavailable. Please try again later.");
   return {
     name: "Rentra",
     version: "1",
@@ -40,7 +41,7 @@ export function escrowDomain() {
 }
 
 export function idrDomain() {
-  if (!addresses.idr) throw new Error("Alamat mIDR belum diisi");
+  if (!addresses.idr) throw new Error("Test payments are unavailable. Please try again later.");
   return {
     name: "Mock Indonesian Rupiah",
     version: "1",

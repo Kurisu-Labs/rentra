@@ -1,22 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAccount, useReadContract, useSignTypedData } from "wagmi";
 import { encodeFunctionData } from "viem";
-import type { Address, Hex } from "viem";
+import type { Address } from "viem";
 import { usePrivy } from "@privy-io/react-auth";
-import { PhotoHash } from "@/components/photo-hash";
+import { TransactionFeedback } from "@/components/transaction-feedback";
+import { Icon } from "@/components/icon";
 import { useRentraTx } from "@/components/use-tx";
 import {
   addresses,
   configured,
+  privyConfigured,
   mockIdrAbi,
   rentalEscrowAbi,
   rentalItemAbi,
   reputationAbi,
 } from "@/lib/contracts";
-import { formatIDR, formatWhen, localInputToUnix, rpToWei, shortAddr, tupleAt, unixToLocalInput } from "@/lib/format";
+import {
+  formatIDR,
+  formatWhen,
+  localInputToUnix,
+  shortAddr,
+  tupleAt,
+  unixToLocalInput,
+} from "@/lib/format";
 import { findSample } from "@/lib/samples";
 import { idrDomain, permitTypes, splitSignature } from "@/lib/sign";
 
@@ -28,23 +38,64 @@ export default function ItemPage() {
 
   if (!configured || tokenId === undefined) {
     return (
-      <article className="card">
-        <h1>{sample?.name ?? "Barang"}</h1>
-        <p>{sample?.blurb ?? "Barang ini hanya contoh sampai kontrak terhubung."}</p>
-        <div className="meta">
-          <span className="pill">Nilai {sample?.value ?? "—"}</span>
-          <span className="pill">{sample?.rate ?? "—"}</span>
-          <span className="pill">Denda {sample?.late ?? "—"}</span>
-          <span className="pill">Tenggang {sample?.grace ?? "—"}</span>
+      <div>
+        <Link href="/#catalog" className="text-link back-link">
+          ← Back to the collection
+        </Link>
+        <div className="split">
+          <article className="card">
+            <span className="eyebrow">{sample?.category ?? "Sample item"} · Preview</span>
+            <h1 style={{ marginTop: 16 }}>{sample?.name ?? "Item unavailable"}</h1>
+            {sample && (
+              <div
+                className={`item-art ${sample.icon}`}
+                style={{ borderRadius: 12, marginBottom: 24 }}
+              >
+                <Icon name={sample.icon} size={90} />
+              </div>
+            )}
+            <p>
+              {sample?.blurb ??
+                "This item is not available. Explore the collection to find a rental."}
+            </p>
+            <dl className="summary">
+              <div>
+                <dt>Item value</dt>
+                <dd>{sample?.value ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Daily rental price</dt>
+                <dd>{sample?.rate ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Late fee</dt>
+                <dd>{sample?.late ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Grace period</dt>
+                <dd>{sample?.grace ?? "—"}</dd>
+              </div>
+            </dl>
+          </article>
+          <aside className="card">
+            <h2>Your next rental starts here.</h2>
+            <p>
+              A new renter’s deposit starts at the item’s value. Qualifying on-time rentals can
+              lower it to 30% on eligible value.
+            </p>
+            <p className="notice">
+              This is a sample listing. Booking isn’t available in this preview.
+            </p>
+            <button className="full-width" type="button" disabled>
+              Booking unavailable
+            </button>
+            <p className="small muted" style={{ marginTop: 16 }}>
+              After return, the remaining deposit is released after the claim window, subject to any
+              fees or damage claims.
+            </p>
+          </aside>
         </div>
-        <div className="notice">
-          Deposit untuk penyewa baru mengikuti nilai barang. Skor reputasi menurunkan deposit, paling
-          rendah 30%, dan hanya untuk nilai yang pernah berhasil disewa.
-        </div>
-        <button type="button" disabled>
-          Kunci deposit
-        </button>
-      </article>
+      </div>
     );
   }
 
@@ -142,12 +193,17 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     query: { enabled: Boolean(address) },
   });
 
-  const name = typeof uri.data === "string" && uri.data ? uri.data : `Barang #${tokenId}`;
+  const name = typeof uri.data === "string" && uri.data ? uri.data : `Item #${tokenId}`;
   const value = tupleAt(terms.data, 0);
   const rate = tupleAt(terms.data, 1);
   const late = tupleAt(terms.data, 2);
   const grace = tupleAt(terms.data, 3);
-  const deposit = typeof quoteDeposit.data === "bigint" ? quoteDeposit.data : typeof value === "bigint" ? value : undefined;
+  const deposit =
+    typeof quoteDeposit.data === "bigint"
+      ? quoteDeposit.data
+      : typeof value === "bigint"
+        ? value
+        : undefined;
   const rent = typeof quoteRent.data === "bigint" ? quoteRent.data : undefined;
   const factorBps = typeof factor.data === "bigint" ? Number(factor.data) : 10000;
 
@@ -158,8 +214,20 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   }
 
   async function book() {
-    if (!addresses.escrow || !addresses.idr || !address || !startUnix || !endUnix || rent === undefined || deposit === undefined) {
+    if (
+      !addresses.escrow ||
+      !addresses.idr ||
+      !address ||
+      !startUnix ||
+      !endUnix ||
+      rent === undefined ||
+      deposit === undefined
+    ) {
       return;
+    }
+    if (endUnix <= startUnix) throw new Error("Choose a return time after pickup.");
+    if (startUnix + 300n < BigInt(Math.floor(Date.now() / 1000))) {
+      throw new Error("Your pickup time has passed. Choose a new pickup time.");
     }
     const total = rent + deposit;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
@@ -184,65 +252,185 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     await tx.send(addresses.escrow, data);
   }
 
-  return (
-    <div className="split">
-      <article className="card">
-        <h1>{name}</h1>
-        <p className="muted">Pemilik {typeof owner.data === "string" ? shortAddr(owner.data) : "—"}</p>
-        <div className="meta">
-          <span className="pill">Nilai {formatIDR(typeof value === "bigint" ? value : undefined)}</span>
-          <span className="pill">{formatIDR(typeof rate === "bigint" ? rate : undefined)} / hari</span>
-          <span className="pill">Denda {formatIDR(typeof late === "bigint" ? late : undefined)} / jam</span>
-          <span className="pill">Tenggang {grace?.toString() ?? "—"} jam</span>
-        </div>
-        {typeof user.data === "string" && user.data !== "0x0000000000000000000000000000000000000000" && (
-          <p>
-            Sedang dipakai {shortAddr(user.data)} sampai {formatWhen(typeof expires.data === "bigint" ? expires.data : undefined)}
-          </p>
-        )}
-        <div className="notice">
-          Deposit terkunci mengikuti reputasi ({(factorBps / 100).toFixed(0)}% dari porsi yang
-          sudah terbukti). KTP tidak diperlukan.
-        </div>
-      </article>
-      <aside className="card">
-        <h2>Pesan</h2>
-        <label>Mulai</label>
-        <input type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} />
-        <label>Selesai</label>
-        <input type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} />
-        <p>Sewa {formatIDR(rent)}</p>
-        <p>
-          <strong>Deposit terkunci {formatIDR(deposit)}</strong>
-        </p>
-        <p className="small muted">Saldo percobaan {formatIDR(typeof balance.data === "bigint" ? balance.data : undefined)}</p>
-        {!authenticated ? (
-          <button type="button" onClick={() => login()}>
-            Masuk untuk memesan
-          </button>
-        ) : (
-          <div className="row">
-            <button type="button" className="secondary" disabled={tx.pending} onClick={() => void faucet()}>
-              Isi saldo percobaan
-            </button>
-            <button type="button" disabled={tx.pending || !rent || !deposit} onClick={() => void book()}>
-              {tx.pending ? "Memproses…" : "Kunci deposit"}
-            </button>
-          </div>
-        )}
-        {tx.hash && <p className="hash">Tercatat {tx.hash}</p>}
-        {tx.error && <p className="notice warn">{tx.error}</p>}
-        <PhotoNote />
-      </aside>
-    </div>
-  );
-}
+  const total = rent !== undefined && deposit !== undefined ? rent + deposit : undefined;
+  const validDates = Boolean(startUnix && endUnix && endUnix > startUnix);
+  const isOwner = address?.toLowerCase() === String(owner.data ?? "").toLowerCase();
+  const balanceValue = typeof balance.data === "bigint" ? balance.data : undefined;
+  const insufficientBalance =
+    total !== undefined && balanceValue !== undefined && balanceValue < total;
+  const locked = useReadContract({
+    address: addresses.escrow,
+    abi: rentalEscrowAbi,
+    functionName: "isLocked",
+    args: [tokenId],
+  });
 
-function PhotoNote() {
-  const [, setHash] = useState<Hex | "">("");
   return (
-    <div style={{ marginTop: 16 }}>
-      <PhotoHash label="Contoh hitung hash foto (tidak dikirim saat pesan)" onHash={(hash) => setHash(hash)} />
+    <div>
+      <Link href="/#catalog" className="text-link back-link">
+        ← Back to the collection
+      </Link>
+      <div className="split">
+        <article className="card">
+          <span className="eyebrow">Community rental · Item #{tokenId.toString()}</span>
+          <h1 style={{ marginTop: 16 }}>{name}</h1>
+          <p>Listed by {typeof owner.data === "string" ? shortAddr(owner.data) : "—"}</p>
+          {terms.isLoading && (
+            <p className="notice" role="status">
+              Loading rental terms…
+            </p>
+          )}
+          {(terms.isError || owner.isError) && (
+            <p className="notice warn" role="alert">
+              We couldn’t load this item. Check the item number or try again later.
+            </p>
+          )}
+          <dl className="summary">
+            <div>
+              <dt>Item value</dt>
+              <dd>{formatIDR(typeof value === "bigint" ? value : undefined)}</dd>
+            </div>
+            <div>
+              <dt>Daily rental price</dt>
+              <dd>{formatIDR(typeof rate === "bigint" ? rate : undefined)}</dd>
+            </div>
+            <div>
+              <dt>Late fee per hour</dt>
+              <dd>{formatIDR(typeof late === "bigint" ? late : undefined)}</dd>
+            </div>
+            <div>
+              <dt>Grace period</dt>
+              <dd>{grace?.toString() ?? "—"} hours</dd>
+            </div>
+          </dl>
+          {typeof user.data === "string" &&
+            user.data !== "0x0000000000000000000000000000000000000000" && (
+              <p className="notice">
+                Currently rented by {shortAddr(user.data)} until{" "}
+                {formatWhen(typeof expires.data === "bigint" ? expires.data : undefined)}.
+              </p>
+            )}
+          <h2>A deposit that reflects your reputation.</h2>
+          <p>
+            Your current factor is {(factorBps / 100).toFixed(0)}% on eligible value. The full value
+            applies above your highest successfully rented amount. No ID document is required.
+          </p>
+          <Link className="text-link" href="/reputation">
+            Understand your reputation <Icon name="arrow" size={16} />
+          </Link>
+        </article>
+        <aside className="card">
+          <h2>Make it yours for a while.</h2>
+          <label htmlFor="rental-start">Pickup date and time</label>
+          <input
+            id="rental-start"
+            type="datetime-local"
+            value={start}
+            onChange={(event) => setStart(event.target.value)}
+          />
+          <label htmlFor="rental-end">Return date and time</label>
+          <input
+            id="rental-end"
+            type="datetime-local"
+            value={end}
+            onChange={(event) => setEnd(event.target.value)}
+          />
+          {!validDates && (
+            <p className="notice warn" role="alert">
+              Choose a return time after pickup.
+            </p>
+          )}
+          <dl className="summary">
+            <div>
+              <dt>Rental payment</dt>
+              <dd>{formatIDR(rent)}</dd>
+            </div>
+            <div>
+              <dt>Deposit held in escrow</dt>
+              <dd>{formatIDR(deposit)}</dd>
+            </div>
+            <div className="total">
+              <dt>Total to book</dt>
+              <dd>{formatIDR(total)}</dd>
+            </div>
+          </dl>
+          <p className="small muted">
+            Rental time rounds up to full days. The remaining deposit is released after the 24-hour
+            claim window, subject to fees or claims. Demo mode speeds up this window.
+          </p>
+          {!authenticated ? (
+            <button
+              className="full-width"
+              type="button"
+              disabled={!privyConfigured}
+              onClick={() => login()}
+            >
+              Sign in to book <Icon name="arrow" size={16} />
+            </button>
+          ) : (
+            <>
+              <p className="small muted">
+                Test balance: {formatIDR(balanceValue)}. Test mIDR has no real monetary value. A
+                small amount of Sepolia ETH is needed for network fees unless sponsorship is
+                enabled.
+              </p>
+              <button
+                type="button"
+                className="secondary full-width"
+                disabled={tx.pending}
+                onClick={() => void tx.run(faucet)}
+              >
+                Add test funds
+              </button>
+              {insufficientBalance && (
+                <p className="notice warn">
+                  Add test funds to cover the rental payment and deposit.
+                </p>
+              )}
+              {isOwner && (
+                <p className="notice">
+                  You own this item. Renters can book it from their accounts.
+                </p>
+              )}
+              {locked.data === true && (
+                <p className="notice">
+                  This item already has an open rental. Check back once it’s settled.
+                </p>
+              )}
+              <button
+                className="full-width"
+                style={{ marginTop: 12 }}
+                type="button"
+                disabled={
+                  tx.pending ||
+                  !validDates ||
+                  rent === undefined ||
+                  deposit === undefined ||
+                  insufficientBalance ||
+                  isOwner ||
+                  locked.data !== false ||
+                  !address ||
+                  quoteDeposit.isLoading ||
+                  quoteDeposit.isError ||
+                  balance.isLoading ||
+                  balance.isError ||
+                  nonce.isLoading ||
+                  nonce.isError
+                }
+                onClick={() => void tx.run(book)}
+              >
+                {tx.pending ? "Confirming your request…" : "Confirm booking"}
+              </button>
+            </>
+          )}
+          <TransactionFeedback {...tx} />
+          {tx.confirmed && (
+            <Link className="text-link" href="/my">
+              Go to My rentals <Icon name="arrow" size={16} />
+            </Link>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

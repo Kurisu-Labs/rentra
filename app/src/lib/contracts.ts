@@ -58,8 +58,7 @@ type DeploymentFile = {
 };
 
 const deployment = sepoliaDeployment as DeploymentFile;
-const fileAddresses =
-  deployment.chainId === SEPOLIA_CHAIN_ID ? deployment.contracts : undefined;
+const fileAddresses = deployment.chainId === SEPOLIA_CHAIN_ID ? deployment.contracts : undefined;
 
 function addr(envValue: string | undefined, fileValue: string | undefined): Address | undefined {
   return parseAddr(envValue) ?? parseAddr(fileValue);
@@ -77,17 +76,17 @@ export const configured = Boolean(
 );
 
 export const STATUS_LABEL = [
-  "Menunggu serah terima",
-  "Sedang disewa",
-  "Dikembalikan",
-  "Terlambat",
-  "Klaim kerusakan",
-  "Sengketa",
-  "Selesai",
-  "Tidak kembali",
-  "Dibatalkan",
+  "Awaiting handover",
+  "Active",
+  "Returned",
+  "Overdue",
+  "Damage claim",
+  "Disputed",
+  "Settled",
+  "Not returned",
+  "Cancelled",
 ] as const;
 
 export function statusLabel(status: number): string {
-  return STATUS_LABEL[status] ?? "Tidak diketahui";
+  return STATUS_LABEL[status] ?? "Unknown";
 }
