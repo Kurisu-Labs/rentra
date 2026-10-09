@@ -127,10 +127,10 @@ cd contracts
 cp .env.example .env
 # set DEPLOYER_PRIVATE_KEY, and SEPOLIA_RPC_URL if you are not using the public endpoint
 
-forge script script/Deploy.s.sol --rpc-url sepolia --broadcast
+forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --slow -g 800
 ```
 
-`foundry.toml` maps the `sepolia` endpoint to `SEPOLIA_RPC_URL`. The script also reads `DEPLOYER_PRIVATE_KEY` and refuses any chain other than 11155111. It deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, wires `setEscrow`, prints the addresses, and writes:
+Since Sepolia's Glamsterdam upgrade (Oct 6, 2026), forge underestimates contract-creation gas. `--slow -g 800` is required. `foundry.toml` maps the `sepolia` endpoint to `SEPOLIA_RPC_URL`. The script also reads `DEPLOYER_PRIVATE_KEY` and refuses any chain other than 11155111. It deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, wires `setEscrow`, prints the addresses, and writes:
 
 - `contracts/deployments/sepolia.json`
 - `app/src/deployments/sepolia.json`
