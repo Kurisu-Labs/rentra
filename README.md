@@ -17,7 +17,7 @@ Full product notes, in Indonesian, are in [docs/PLAN.md](docs/PLAN.md).
 ## Architecture
 
 ```
-app/          Next.js (App Router) + Privy + wagmi/viem, Base Sepolia
+app/          Next.js (App Router) + Privy + wagmi/viem, Ethereum Sepolia
 contracts/    Foundry + OpenZeppelin
   MockIDR         ERC-20 test rupiah (18 decimals, 1e18 = Rp1) with ERC-2612 permit and a faucet
   RentalItem      ERC-721 "bukti sewa" + ERC-4907 user right. Only the escrow may call setUser
@@ -25,7 +25,7 @@ contracts/    Foundry + OpenZeppelin
   Reputation      Non-transferable score. Lowers the deposit. No transfer function
 ```
 
-Chain: Base Sepolia. There is no admin function that can withdraw user funds.
+Chain: Ethereum Sepolia (chain id 11155111). There is no admin function that can withdraw user funds.
 
 ### Deposit and reputation
 
@@ -61,15 +61,15 @@ Deploy turns demo mode on. Time is scaled from each rental's booking timestamp b
 ## What is implemented
 
 - The four contracts above, with Foundry tests for the happy path, cancel, permit booking, late fee (including the cap), default, permanent reputation damage, bonded claim accept / counter / timeout / bond slash, signature replay and expiry, the value cap, and demo-mode scaling.
-- `script/Deploy.s.sol` for Base Sepolia. RPC URL and private key come from the environment. Nothing secret is committed.
+- `script/Deploy.s.sol` for Ethereum Sepolia. `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY` come from the environment. The script writes `contracts/deployments/sepolia.json` and prints the addresses. Nothing secret is committed.
 - Next.js pages: catalog, item detail and booking (permit + book), list an item, my rentals (countdown from `userExpires`, default and finalize), handover QR, return (including unilateral return and the damage-claim forms), and a public reputation page.
-- Privy email/Google login with an embedded wallet, wagmi/viem on Base Sepolia, and writes sent with Privy `sponsor: true` so gas sponsorship can be turned on in the Privy dashboard.
+- Privy email/Google login with an embedded wallet and wagmi/viem on Ethereum Sepolia. Gas sponsorship is off unless `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`, so transactions use the wallet's own Sepolia ETH.
 - Photo hashing in the browser (`keccak256`). The file stays on the device.
 - GitHub Actions: `forge build`, `forge test`, and `npm run build`.
 
 ## What is stubbed or left out
 
-- No Base Sepolia deployment in this repository. Run the deploy script, then paste the addresses into `app/.env.local`.
+- No Ethereum Sepolia deployment in this repository. Run the deploy script, then set the `NEXT_PUBLIC_*_ADDRESS` variables (or commit the written `sepolia.json`). The app reads env vars first and falls back to `app/src/deployments/sepolia.json`.
 - No IPFS upload. Only the hash is stored onchain.
 - The handover screen shows a QR and accepts a pasted payload. It does not open the camera to scan.
 - `GuarantorVault` and `JurorPool` (Pyth Entropy) are not built. The `guarantee` field stays zero. `escalate` only starts the timeout path.
@@ -93,31 +93,49 @@ npm run dev
 
 `npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length) and empty contract addresses. The catalog then shows three example items and disables booking until addresses are set. Login itself needs a real Privy app id.
 
-## Deploy to Base Sepolia
+## Deploy to Ethereum Sepolia
+
+Chain id `11155111`. The script does not broadcast unless you pass `--broadcast`. It keeps demo mode on and does not pre-list items.
 
 ```bash
 cd contracts
 cp .env.example .env
-# set PRIVATE_KEY and, if you want verification, BASESCAN_API_KEY
+# set DEPLOYER_PRIVATE_KEY, and SEPOLIA_RPC_URL if you are not using the public endpoint
 
-forge script script/Deploy.s.sol \
-  --rpc-url base_sepolia \
-  --broadcast \
-  --private-key "$PRIVATE_KEY"
+forge script script/Deploy.s.sol --rpc-url sepolia --broadcast
 ```
 
-The script deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, then wires `setEscrow` on the item and reputation contracts. Copy the logged addresses into:
+`foundry.toml` maps the `sepolia` endpoint to `SEPOLIA_RPC_URL`. The script also reads `DEPLOYER_PRIVATE_KEY` and refuses any chain other than 11155111. It deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, wires `setEscrow`, prints the addresses, and writes:
+
+- `contracts/deployments/sepolia.json`
+- `app/src/deployments/sepolia.json`
+
+Do not commit an RPC URL that contains an API key. Add `--verify` only after `ETHERSCAN_API_KEY` is set in the environment.
+
+## Vercel
+
+| Setting | Value |
+|---|---|
+| Root Directory | `app` |
+| Framework Preset | Next.js |
+| Node.js Version | 22 |
+| Install Command | `npm ci` |
+| Build Command | `npm run build` |
+| Output Directory | `.next` (leave the default) |
+
+Environment variables. Address values override the committed JSON. Leave sponsorship unset or `false` so users pay gas with their own Sepolia ETH.
 
 ```
+NEXT_PUBLIC_PRIVY_APP_ID=
+NEXT_PUBLIC_SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+NEXT_PUBLIC_PRIVY_SPONSOR_GAS=false
 NEXT_PUBLIC_MOCK_IDR_ADDRESS=
 NEXT_PUBLIC_RENTAL_ITEM_ADDRESS=
 NEXT_PUBLIC_REPUTATION_ADDRESS=
 NEXT_PUBLIC_RENTAL_ESCROW_ADDRESS=
-NEXT_PUBLIC_PRIVY_APP_ID=
-NEXT_PUBLIC_BASE_SEPOLIA_RPC=https://sepolia.base.org
 ```
 
-In the Privy dashboard, allow email and Google, create an embedded wallet on login, and enable gas sponsorship for Base Sepolia. The app already sends transactions with `sponsor: true`.
+In the Privy dashboard, allow email and Google and create an embedded wallet on login. Turn on gas sponsorship for Ethereum Sepolia only if you also set `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`.
 
 ## Deviations from the plan
 

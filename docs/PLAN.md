@@ -3,6 +3,8 @@
 *Disusun Jumat, 9 Okt 2026, ±12.00 WIB. Deadline submission: **Sabtu 10 Okt 2026, 12.00 WIB** (target submit 11.30). Track: "BUILD THE REAL WORLD ONCHAIN". Kriteria: Utility 25%, Onchain 25%, Innovation 20%, Feasibility 20%, Demo/UX 10% ([HackQuest](https://www.hackquest.io/hackathons/Ethereum-Jakarta-Hackathon-2026)).*
 
 > **Tagline:** *"Sewa barang tanpa menitipkan KTP. Jaminanmu adalah deposit yang dikunci kode dan reputasimu sendiri."*
+>
+> **Chain update:** the shipped contracts and app target **Ethereum Sepolia (chain id 11155111)**, not Base Sepolia. Deploy with `forge script script/Deploy.s.sol --rpc-url sepolia --broadcast` after setting `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY`. Privy gas sponsorship is off unless `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`.
 
 ---
 
