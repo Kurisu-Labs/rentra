@@ -1,10 +1,11 @@
 {
   "chainId": 11155111,
   "demoMode": true,
+  "deployer": "0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf",
   "contracts": {
-    "MockIDR": "",
-    "RentalItem": "",
-    "Reputation": "",
-    "RentalEscrow": ""
+    "MockIDR": "0x3740Bf82073E6889298631E8B4dC72b5358b6a39",
+    "RentalItem": "0x229918cCE2f140d40EE4A4187b62A5F4bc5Dd67c",
+    "Reputation": "0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7",
+    "RentalEscrow": "0x888d7200C2fC016a8Adde7328092B40BB14C5cab"
   }
 }

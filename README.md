@@ -62,19 +62,19 @@ Deploy turns demo mode on. Time is scaled from each rental's booking timestamp b
 
 - The four contracts above, with Foundry tests for the happy path, cancel, permit booking, late fee (including the cap), default, permanent reputation damage, bonded claim accept / counter / timeout / bond slash, signature replay and expiry, the value cap, and demo-mode scaling.
 - `script/Deploy.s.sol` for Ethereum Sepolia. `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY` come from the environment. The script writes `contracts/deployments/sepolia.json` and prints the addresses. Nothing secret is committed.
-- Next.js pages: catalog, item detail and booking (permit + book), list an item, my rentals (countdown from `userExpires`, default and finalize), handover QR, return (including unilateral return and the damage-claim forms), and a public reputation page.
+- English Next.js interface with responsive layouts, active navigation, accessible forms, and transaction confirmation feedback. Pages: catalog, item detail and booking (permit + book), list an item, my rentals (countdown from `userExpires`, default and finalize), handover QR, return (including unilateral return and the damage-claim forms), and a public reputation page.
 - Privy email/Google login with an embedded wallet and wagmi/viem on Ethereum Sepolia. Gas sponsorship is off unless `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`, so transactions use the wallet's own Sepolia ETH.
 - Photo hashing in the browser (`keccak256`). The file stays on the device.
 - GitHub Actions: `forge build`, `forge test`, and `npm run build`.
 
 ## What is stubbed or left out
 
-- No Ethereum Sepolia deployment in this repository. Run the deploy script, then set the `NEXT_PUBLIC_*_ADDRESS` variables (or commit the written `sepolia.json`). The app reads env vars first and falls back to `app/src/deployments/sepolia.json`.
+- Login requires a real Privy app ID; the placeholder only supports local builds.
 - No IPFS upload. Only the hash is stored onchain.
 - The handover screen shows a QR and accepts a pasted payload. It does not open the camera to scan.
 - `GuarantorVault` and `JurorPool` (Pyth Entropy) are not built. The `guarantee` field stays zero. `escalate` only starts the timeout path.
 - No Pyth USD/IDR feed and no smart-lock simulation.
-- The app is a working foundation, not the final Bahasa Indonesia polish pass from the plan (loading states are light, and there is no demo video or slide deck).
+- The app follows the rental and reputation flow from the plan, with English copy. Camera QR scanning, a demo video, and a slide deck are not included.
 
 ## Run and test
 
@@ -91,9 +91,24 @@ npm install
 npm run dev
 ```
 
-`npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length) and empty contract addresses. The catalog then shows three example items and disables booking until addresses are set. Login itself needs a real Privy app id.
+`npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length). Empty address overrides use the committed Ethereum Sepolia deployment. The catalog reads live listings and shows an empty state until owners list items. Login needs a real Privy app ID.
 
-## Deploy to Ethereum Sepolia
+## Current Ethereum Sepolia Deployment
+
+Chain ID: `11155111`. Deployer: [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](https://sepolia.etherscan.io/address/0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf).
+
+| Contract | Address |
+|---|---|
+| MockIDR | [`0x3740Bf82073E6889298631E8B4dC72b5358b6a39`](https://sepolia.etherscan.io/address/0x3740Bf82073E6889298631E8B4dC72b5358b6a39) |
+| RentalItem | [`0x229918cCE2f140d40EE4A4187b62A5F4bc5Dd67c`](https://sepolia.etherscan.io/address/0x229918cCE2f140d40EE4A4187b62A5F4bc5Dd67c) |
+| Reputation | [`0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7`](https://sepolia.etherscan.io/address/0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7) |
+| RentalEscrow | [`0x888d7200C2fC016a8Adde7328092B40BB14C5cab`](https://sepolia.etherscan.io/address/0x888d7200C2fC016a8Adde7328092B40BB14C5cab) |
+
+Read-only RPC verification confirmed bytecode at all four addresses, matching admin and cross-contract references, and mIDR token metadata. Demo mode was enabled at verification. The deployment is recorded in `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json`.
+
+The app uses this deployment by default. `NEXT_PUBLIC_*_ADDRESS` environment variables can override individual addresses.
+
+## Deploy a New Instance to Ethereum Sepolia
 
 Chain id `11155111`. The script does not broadcast unless you pass `--broadcast`. It keeps demo mode on and does not pre-list items.
 
@@ -147,3 +162,7 @@ The plan's function list is marked "ringkas" (a sketch). A few signatures grew a
 - `finalizeClaim` also releases a clean return after 24 hours with no damage claim (`Returned → Settled`).
 
 Parameters that the plan left as "contoh" are constants: Rp500.000 minimum countable value, 10% off per new owner, 30% floor, 10% claim bond, 24 hour claim and response windows, demo scale 720.
+
+## Contributing
+
+See [AGENTS.md](AGENTS.md) for repository guidelines. Use English for application copy and Conventional Commits with a scope, such as `feat(ui): improve rental booking experience` or `fix(contracts): validate rental terms`.
