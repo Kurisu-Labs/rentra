@@ -1,0 +1,10 @@
+{
+  "chainId": 11155111,
+  "demoMode": true,
+  "contracts": {
+    "MockIDR": "",
+    "RentalItem": "",
+    "Reputation": "",
+    "RentalEscrow": ""
+  }
+}
