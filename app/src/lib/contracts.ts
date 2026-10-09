@@ -7,7 +7,18 @@ import rentalEscrowJson from "@/abi/RentalEscrow.json";
 
 export const chain = baseSepolia;
 export const rpcUrl = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || "https://sepolia.base.org";
-export const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "placeholder-privy-app-id";
+
+// Privy rejects any app id whose length is not exactly 25. A real id comes from the
+// Privy dashboard; this placeholder only lets the UI mount for local builds.
+const PRIVY_PLACEHOLDER_APP_ID = "clplaceholderprivyappid01";
+
+function privyId(value: string | undefined): string {
+  if (value && value.length === 25) return value;
+  return PRIVY_PLACEHOLDER_APP_ID;
+}
+
+export const privyAppId = privyId(process.env.NEXT_PUBLIC_PRIVY_APP_ID);
+export const privyConfigured = privyAppId !== PRIVY_PLACEHOLDER_APP_ID;
 
 export const mockIdrAbi = mockIdrJson as Abi;
 export const rentalItemAbi = rentalItemJson as Abi;

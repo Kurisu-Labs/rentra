@@ -91,7 +91,7 @@ npm install
 npm run dev
 ```
 
-`npm run build` succeeds with `NEXT_PUBLIC_PRIVY_APP_ID=placeholder-privy-app-id` and empty contract addresses. The catalog then shows three example items and disables booking until addresses are set.
+`npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length) and empty contract addresses. The catalog then shows three example items and disables booking until addresses are set. Login itself needs a real Privy app id.
 
 ## Deploy to Base Sepolia
 

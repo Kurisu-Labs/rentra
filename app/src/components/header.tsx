@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
+import { privyConfigured } from "@/lib/contracts";
 import { shortAddr } from "@/lib/format";
 
 export function Header() {
@@ -30,9 +31,21 @@ export function Header() {
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => login()} disabled={!ready}>
-            Masuk
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => login()}
+              disabled={!ready || !privyConfigured}
+              title={
+                privyConfigured
+                  ? undefined
+                  : "Isi NEXT_PUBLIC_PRIVY_APP_ID (25 karakter) dari dashboard Privy"
+              }
+            >
+              Masuk
+            </button>
+            {!privyConfigured && <span className="small muted">App id Privy belum diisi</span>}
+          </>
         )}
       </nav>
     </header>
