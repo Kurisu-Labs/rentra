@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSendTransaction } from "@privy-io/react-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Address, Hex } from "viem";
-import { chain } from "@/lib/contracts";
+import { chain, sponsorGas } from "@/lib/contracts";
 import { errText } from "@/lib/format";
 
 export function useRentraTx() {
@@ -18,7 +18,10 @@ export function useRentraTx() {
     setPending(true);
     setError(null);
     try {
-      const result = await sendTransaction({ to, data, chainId: chain.id }, { sponsor: true });
+      const result = await sendTransaction(
+        { to, data, chainId: chain.id },
+        sponsorGas ? { sponsor: true } : undefined,
+      );
       setHash(result.hash);
       await queryClient.invalidateQueries();
       return result.hash;

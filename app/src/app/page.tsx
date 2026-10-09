@@ -44,7 +44,7 @@ export default function CatalogPage() {
       {!configured && (
         <div className="notice warn">
           Alamat kontrak belum diisi. Katalog di bawah adalah contoh untuk tata letak. Setelah
-          deploy Base Sepolia, isi <span className="hash">NEXT_PUBLIC_*_ADDRESS</span> di environment
+          deploy Ethereum Sepolia, isi <span className="hash">NEXT_PUBLIC_*_ADDRESS</span> di environment
           aplikasi.
         </div>
       )}

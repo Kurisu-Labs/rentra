@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Rentra",
-  description: "Sewa apa saja, tanpa titip KTP. Deposit dikunci kontrak di Base Sepolia.",
+  description: "Sewa apa saja, tanpa titip KTP. Deposit dikunci kontrak di Ethereum Sepolia.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
