@@ -9,7 +9,7 @@ import type { Hex } from "viem";
 import { PhotoHash } from "@/components/photo-hash";
 import { QrCode } from "@/components/qr-code";
 import { useRentraTx } from "@/components/use-tx";
-import { addresses, configured, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
+import { addresses, chain, configured, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
 import { errText, shortAddr, tupleAt } from "@/lib/format";
 import { escrowDomain, handoverTypes, returnTypes } from "@/lib/sign";
 
@@ -32,6 +32,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
   const [localError, setLocalError] = useState<string | null>(null);
 
   const rental = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "rentals",
@@ -43,6 +44,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
   const status = Number(tupleAt(rental.data, 10) ?? 0);
   const signer = mode === "handover" ? renter : owner;
   const nonceRead = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "nonces",

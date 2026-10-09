@@ -13,28 +13,6 @@ export const SEPOLIA_CHAIN_ID = 11155111;
 const PUBLIC_SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
 export const rpcUrl = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || PUBLIC_SEPOLIA_RPC;
 
-// Privy rejects any app id whose length is not exactly 25. A real id comes from the
-// Privy dashboard; this placeholder only lets the UI mount for local builds.
-const PRIVY_PLACEHOLDER_APP_ID = "clplaceholderprivyappid01";
-
-function privyId(value: string | undefined): string {
-  if (value && value.length === 25) return value;
-  return PRIVY_PLACEHOLDER_APP_ID;
-}
-
-export const privyAppId = privyId(process.env.NEXT_PUBLIC_PRIVY_APP_ID);
-export const privyConfigured = privyAppId !== PRIVY_PLACEHOLDER_APP_ID;
-
-// Gas sponsorship is off unless NEXT_PUBLIC_PRIVY_SPONSOR_GAS is true.
-// Off means the embedded wallet pays with its own Sepolia ETH.
-function envFlag(value: string | undefined): boolean {
-  if (!value) return false;
-  const normalized = value.trim().toLowerCase();
-  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
-}
-
-export const sponsorGas = envFlag(process.env.NEXT_PUBLIC_PRIVY_SPONSOR_GAS);
-
 export const mockIdrAbi = mockIdrJson as Abi;
 export const rentalItemAbi = rentalItemJson as Abi;
 export const reputationAbi = reputationJson as Abi;

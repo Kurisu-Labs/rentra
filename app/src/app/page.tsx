@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useReadContract, useReadContracts } from "wagmi";
-import { addresses, configured, rentalItemAbi } from "@/lib/contracts";
+import { addresses, chain, configured, rentalItemAbi } from "@/lib/contracts";
 import { formatIDR, shortAddr, tupleAt } from "@/lib/format";
 import { samples } from "@/lib/samples";
 import { Icon } from "@/components/icon";
 
 export default function CatalogPage() {
   const nextId = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "nextId",
@@ -25,9 +26,9 @@ export default function CatalogPage() {
 
   const reads = useReadContracts({
     contracts: ids.flatMap((id) => [
-      { address: addresses.item, abi: rentalItemAbi, functionName: "tokenURI", args: [BigInt(id)] },
-      { address: addresses.item, abi: rentalItemAbi, functionName: "terms", args: [BigInt(id)] },
-      { address: addresses.item, abi: rentalItemAbi, functionName: "ownerOf", args: [BigInt(id)] },
+      { chainId: chain.id, address: addresses.item, abi: rentalItemAbi, functionName: "tokenURI", args: [BigInt(id)] },
+      { chainId: chain.id, address: addresses.item, abi: rentalItemAbi, functionName: "terms", args: [BigInt(id)] },
+      { chainId: chain.id, address: addresses.item, abi: rentalItemAbi, functionName: "ownerOf", args: [BigInt(id)] },
     ]),
     query: { enabled: configured && ids.length > 0 },
   });

@@ -17,7 +17,7 @@ Full product notes, in Indonesian, are in [docs/PLAN.md](docs/PLAN.md).
 ## Architecture
 
 ```
-app/          Next.js (App Router) + Privy + wagmi/viem, Ethereum Sepolia
+app/          Next.js (App Router) + RainbowKit + MetaMask + wagmi/viem, Ethereum Sepolia
 contracts/    Foundry + OpenZeppelin
   MockIDR         ERC-20 test rupiah (18 decimals, 1e18 = Rp1) with ERC-2612 permit and a faucet
   RentalItem      ERC-721 "bukti sewa" + ERC-4907 user right. Only the escrow may call setUser
@@ -63,13 +63,13 @@ Deploy turns demo mode on. Time is scaled from each rental's booking timestamp b
 - The four contracts above, with Foundry tests for the happy path, cancel, permit booking, late fee (including the cap), default, permanent reputation damage, bonded claim accept / counter / timeout / bond slash, signature replay and expiry, the value cap, and demo-mode scaling.
 - `script/Deploy.s.sol` for Ethereum Sepolia. `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY` come from the environment. The script writes `contracts/deployments/sepolia.json` and prints the addresses. Nothing secret is committed.
 - English Next.js interface with responsive layouts, active navigation, accessible forms, and transaction confirmation feedback. Pages: catalog, item detail and booking (permit + book), list an item, my rentals (countdown from `userExpires`, default and finalize), handover QR, return (including unilateral return and the damage-claim forms), and a public reputation page.
-- Privy email/Google login with an embedded wallet and wagmi/viem on Ethereum Sepolia. Gas sponsorship is off unless `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`, so transactions use the wallet's own Sepolia ETH.
+- RainbowKit connects directly to MetaMask through its browser extension or in-app mobile browser. There is no account login or embedded wallet. Transactions and EIP-712 signatures use wagmi/viem on Ethereum Sepolia; wallets pay network fees with Sepolia ETH.
 - Photo hashing in the browser (`keccak256`). The file stays on the device.
 - GitHub Actions: `forge build`, `forge test`, and `npm run build`.
 
 ## What is stubbed or left out
 
-- Login requires a real Privy app ID; the placeholder only supports local builds.
+- No gas sponsorship or WalletConnect QR pairing. Use the MetaMask extension or open Rentra in the MetaMask mobile browser.
 - No IPFS upload. Only the hash is stored onchain.
 - The handover screen shows a QR and accepts a pasted payload. It does not open the camera to scan.
 - `GuarantorVault` and `JurorPool` (Pyth Entropy) are not built. The `guarantee` field stays zero. `escalate` only starts the timeout path.
@@ -84,14 +84,24 @@ cd contracts
 forge build
 forge test
 
-# app (placeholder env is enough to build)
+# app (RPC and contract defaults are included)
 cd app
 cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-`npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length). Empty address overrides use the committed Ethereum Sepolia deployment. The catalog reads live listings and shows an empty state until owners list items. Login needs a real Privy app ID.
+`npm run build` requires no authentication credentials or WalletConnect project ID. Empty address overrides use the committed Ethereum Sepolia deployment. The catalog reads live listings and shows an empty state until owners list items.
+
+### Connect MetaMask
+
+1. Install the MetaMask browser extension, or open Rentra in the MetaMask mobile browser.
+2. Click **Connect MetaMask** and approve the wallet connection.
+3. Select **Ethereum Sepolia** (chain ID `11155111`); RainbowKit offers a network switch when needed.
+4. Fund the wallet with Sepolia ETH for network fees. **Add test funds** on an item page requests test mIDR from the faucet.
+5. Click the connected wallet address to open RainbowKit’s account modal and disconnect.
+
+Connecting a wallet does not request a login signature. Booking and handover/return request the signatures required by the rental contracts. The MetaMask icon is distributed with its RainbowKit MIT license in `app/public/licenses/rainbowkit.txt`.
 
 ## Current Ethereum Sepolia Deployment
 
@@ -138,19 +148,17 @@ Do not commit an RPC URL that contains an API key. Add `--verify` only after `ET
 | Build Command | `npm run build` |
 | Output Directory | `.next` (leave the default) |
 
-Environment variables. Address values override the committed JSON. Leave sponsorship unset or `false` so users pay gas with their own Sepolia ETH.
+Environment variables. Address values override the committed JSON. Wallets pay gas with their own Sepolia ETH; no authentication provider credentials are needed.
 
 ```
-NEXT_PUBLIC_PRIVY_APP_ID=
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
-NEXT_PUBLIC_PRIVY_SPONSOR_GAS=false
 NEXT_PUBLIC_MOCK_IDR_ADDRESS=
 NEXT_PUBLIC_RENTAL_ITEM_ADDRESS=
 NEXT_PUBLIC_REPUTATION_ADDRESS=
 NEXT_PUBLIC_RENTAL_ESCROW_ADDRESS=
 ```
 
-In the Privy dashboard, allow email and Google and create an embedded wallet on login. Turn on gas sponsorship for Ethereum Sepolia only if you also set `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`.
+Wallet configuration is in `app/src/lib/wallet.ts`. The injected MetaMask connector does not use WalletConnect, so no project ID is required.
 
 ## Deviations from the plan
 

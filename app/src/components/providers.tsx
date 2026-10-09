@@ -1,23 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PrivyProvider } from "@privy-io/react-auth";
-import { WagmiProvider, createConfig } from "@privy-io/wagmi";
+import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
+import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http } from "viem";
 import { Header } from "@/components/header";
-import { chain, privyAppId, rpcUrl } from "@/lib/contracts";
-
-const queryClient = new QueryClient();
-
-export const wagmiConfig = createConfig({
-  chains: [chain],
-  transports: {
-    [chain.id]: http(rpcUrl),
-  },
-});
+import { chain } from "@/lib/contracts";
+import { wagmiConfig } from "@/lib/wallet";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient());
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
 
@@ -30,24 +22,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <PrivyProvider
-      appId={privyAppId}
-      config={{
-        loginMethods: ["email", "google"],
-        appearance: {
-          theme: "light",
-          accentColor: "#0e6b66",
-          logo: undefined,
-        },
-        embeddedWallets: {
-          ethereum: { createOnLogin: "users-without-wallets" },
-        },
-        defaultChain: chain,
-        supportedChains: [chain],
-      }}
-    >
+    <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider config={wagmiConfig}>
+        <RainbowKitProvider
+          initialChain={chain}
+          locale="en-US"
+          modalSize="compact"
+          theme={lightTheme({
+            accentColor: "#245c48",
+            accentColorForeground: "#ffffff",
+            borderRadius: "medium",
+            fontStack: "system",
+          })}
+        >
           <div className="app">
             <a className="skip-link" href="#main-content">
               Skip to content
@@ -70,8 +57,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
               </div>
             </footer>
           </div>
-        </WagmiProvider>
+        </RainbowKitProvider>
       </QueryClientProvider>
-    </PrivyProvider>
+    </WagmiProvider>
   );
 }

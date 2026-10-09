@@ -6,7 +6,7 @@
 >
 > **UI update:** the app uses English copy, while keeping prices in Indonesian rupiah. Explain claim windows, reputation eligibility, and test funds using the implemented contract rules.
 >
-> **Chain update:** the shipped contracts and app target **Ethereum Sepolia (chain id 11155111)**, not Base Sepolia. Deploy with `forge script script/Deploy.s.sol --rpc-url sepolia --broadcast` after setting `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY`. Privy gas sponsorship is off unless `NEXT_PUBLIC_PRIVY_SPONSOR_GAS=true`.
+> **Chain update:** the shipped contracts and app target **Ethereum Sepolia (chain id 11155111)**, not Base Sepolia. Deploy with `forge script script/Deploy.s.sol --rpc-url sepolia --broadcast` after setting `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY`. Wallet connections now use RainbowKit with injected MetaMask. There is no email/Google login, embedded wallet, or gas sponsorship; users need Sepolia ETH for network fees.
 
 ---
 
@@ -46,7 +46,7 @@
 
 ### Alur inti
 1. **Daftar barang (pemilik):** foto, nilai barang (Rp), tarif/hari, denda/jam, deposit, grace period. Barang di-mint sebagai `RentalItem` NFT.
-2. **Booking (penyewa):** login dengan email/Google (embedded wallet, tanpa seed phrase), pilih tanggal, bayar sewa + deposit (mIDR). Dana dikunci di escrow. **Deposit otomatis lebih kecil jika skor reputasi tinggi.**
+2. **Booking (penyewa):** connect wallet MetaMask melalui RainbowKit, pilih tanggal, bayar sewa + deposit (mIDR). Dana dikunci di escrow. **Deposit otomatis lebih kecil jika skor reputasi tinggi.**
 3. **Serah terima (bertemu langsung):** pemilik memotret kondisi barang, dan hash foto dicatat. Penyewa scan QR dan menandatangani "barang diterima dalam kondisi H". Kontrak memanggil `setUser(tokenId, penyewa, expires)` dari ERC-4907, dan sewa resmi aktif.
 4. **Pengembalian:** foto kondisi akhir dan konfirmasi dua pihak. Kontrak menghitung denda telat otomatis, mengirim sewa ke pemilik, mengembalikan sisa deposit ke penyewa, dan memperbarui reputasi.
 5. **Masalah:**
@@ -134,7 +134,7 @@ stateDiagram-v2
 
 ```mermaid
 sequenceDiagram
-    participant P as Penyewa (Privy wallet)
+    participant P as Penyewa (MetaMask wallet)
     participant O as Pemilik
     participant E as RentalEscrow
     participant N as RentalItem (ERC-4907)
@@ -174,11 +174,12 @@ Smart lock / loker (ESP32) menampilkan challenge. Penyewa menandatangani challen
 ### 3.7 Opsional: Pyth USD/IDR
 Untuk barang yang harganya mengikuti dolar (kamera/lensa impor), nilai barang dicatat dalam USD dan deposit dihitung ulang via Pyth USD/IDR (feed `0x6693afcd…9207433`, dicek via Hermes). **Rekomendasi: jangan dimasukkan ke MVP.** Feed FX tidak update saat akhir pekan (jadwal feed: pasar tutup Sabtu–Minggu), padahal rekaman demo dilakukan Sabtu pagi. Cukup sebut di roadmap.
 
-### 3.8 UX tanpa crypto (verified)
-- **Privy**: login email/Google, embedded wallet, dan **native gas sponsorship yang mendukung Base Sepolia** (aktifkan di dashboard, kirim transaksi dengan `sponsor: true`) ([Privy docs](https://docs.privy.io/wallets/gas-and-asset-management/gas/overview), [setup](https://docs.privy.io/wallets/gas-and-asset-management/gas/setup)). **Pilihan utama.**
-- **Alternatif:** Coinbase CDP Paymaster mendukung Base Sepolia (testnet tanpa batas), tetapi **hanya untuk smart account (ERC-4337/EIP-7702), bukan EOA biasa** ([CDP docs](https://docs.cdp.coinbase.com/paymaster/introduction/welcome)).
-- Pakai `permit` (ERC-2612) di MockIDR supaya approve + book cukup satu klik.
-- UI full Bahasa Indonesia, angka dalam "Rp", tanpa istilah "gas", "wallet", atau "NFT" di layar utama ("Bukti Sewa", "Deposit Terkunci").
+### 3.8 UX koneksi wallet
+- **RainbowKit + MetaMask**: koneksi langsung ke extension MetaMask atau browser dalam aplikasi MetaMask. Tidak ada login email/Google atau embedded wallet.
+- Jaringan aplikasi adalah **Ethereum Sepolia** (`11155111`). UI menyediakan pilihan pindah jaringan, dan aksi wallet memastikan jaringan sesuai sebelum tanda tangan/transaksi.
+- Gas dibayar dari saldo Sepolia ETH milik pengguna. Tidak ada gas sponsorship atau pairing QR WalletConnect; project ID tidak diperlukan untuk koneksi injected.
+- Pakai `permit` (ERC-2612) di MockIDR untuk booking. MetaMask meminta persetujuan tanda tangan permit, lalu transaksi booking.
+- Copy UI menggunakan English, dengan harga dalam rupiah. Jelaskan total sewa + deposit, biaya jaringan testnet, dan claim window secara akurat.
 
 ---
 
@@ -198,7 +199,7 @@ Untuk barang yang harganya mengikuti dolar (kamera/lensa impor), nilai barang di
 - [ ] Tes Foundry untuk alur utama (sukses, telat, default, klaim diterima)
 - [ ] Deploy & verifikasi di **Base Sepolia**
 - [ ] Next.js: halaman katalog, detail + booking, "Sewa Saya" (status + countdown dari `userExpires`), halaman pemilik (serah terima via QR, terima pengembalian, klaim)
-- [ ] Login Privy + gas sponsorship
+- [ ] Koneksi MetaMask melalui RainbowKit
 - [ ] Upload foto: hash dihitung di browser dan dicatat onchain
 - [ ] README (problem, arsitektur, apa yang dibangun selama hackathon, keterbatasan), video demo, slide
 
@@ -212,15 +213,15 @@ Untuk barang yang harganya mengikuti dolar (kamera/lensa impor), nilai barang di
 ### Stack
 - **Chain:** Base Sepolia
 - **Kontrak:** Foundry + OpenZeppelin (ERC721, EIP712, ECDSA, SafeERC20, ReentrancyGuard)
-- **Frontend:** Next.js (App Router) + **Privy** (login & embedded wallet & gas sponsorship) + wagmi/viem; QR: `qrcode` + scanner kamera (mis. `html5-qrcode`)
+- **Frontend:** Next.js (App Router) + **RainbowKit + MetaMask** (wallet connection) + wagmi/viem; QR: `qrcode` + scanner kamera (mis. `html5-qrcode`)
 - **Storage foto:** IPFS (mis. Pinata, cek kuota free tier) atau sementara di storage lokal/Supabase. Yang penting **hash** onchain
 - **Indexing:** baca event langsung via viem (tanpa subgraph, demi hemat waktu)
-- *Catatan:* RainbowKit/thirdweb tetap bisa dipakai, tapi **Privy dipilih** karena gas sponsorship native di Base Sepolia sudah diverifikasi di docs.
+- *Catatan:* implementasi terbaru memakai RainbowKit dengan connector injected MetaMask pada Ethereum Sepolia, tanpa login akun dan tanpa gas sponsorship.
 
 ### Rencana per jam (WIB). Asumsi tim 3 orang: **SC** (smart contract), **FE** (frontend), **PD** (product/demo)
 | Waktu | SC | FE | PD |
 |---|---|---|---|
-| **Jum 12.30–14.00** | Setup Foundry, MockIDR, RentalItem (4907) | Setup Next.js + Privy (login email, gas sponsorship Base Sepolia) | Finalisasi parameter (deposit, denda, grace), wireframe 5 layar |
+| **Jum 12.30–14.00** | Setup Foundry, MockIDR, RentalItem (4907) | Setup Next.js + RainbowKit (connect MetaMask, Ethereum Sepolia) | Finalisasi parameter (deposit, denda, grace), wireframe 5 layar |
 | **14.00–17.00** | RentalEscrow: book, handover (EIP-712), confirmReturn, lateFee | Katalog + form listing + booking (mock ABI) | Siapkan 3 barang demo (kamera, tenda, kebaya) + foto |
 | **17.00–19.00** | claimDefault, klaim opsi A, Reputation + depositFactor; tes Foundry | Halaman "Sewa Saya" (countdown `userExpires`), alur QR handover | Draft slide 1–3, naskah demo |
 | **19.00–20.00** | **Deploy Base Sepolia + verify** → bagikan alamat/ABI | Integrasi kontrak nyata | Uji alur end-to-end di HP |
@@ -240,7 +241,7 @@ Untuk barang yang harganya mengikuti dolar (kamera/lensa impor), nilai barang di
 | Waktu | Adegan | Yang ditunjukkan |
 |---|---|---|
 | 0:00–0:20 | **Hook** | "Pernah diminta ninggalin KTP waktu sewa kamera? Dirjen Dukcapil bilang KTP tidak boleh ditahan dalam sewa-menyewa, dan buat pemilik rental pun KTP tidak menjamin apa-apa. Banyak motor dan kamera rental dibawa kabur pakai KTP palsu." |
-| 0:20–0:45 | **Login & booking** | Penyewa "Raka" login pakai Google (tanpa seed phrase, tanpa gas). Sewa kamera 2 hari. Layar menampilkan "Deposit terkunci Rp3.000.000. KTP tidak diperlukan." |
+| 0:20–0:45 | **Connect wallet & booking** | Penyewa "Raka" connect MetaMask lewat RainbowKit (gas memakai Sepolia ETH). Sewa kamera 2 hari. Layar menampilkan "Deposit terkunci Rp3.000.000. KTP tidak diperlukan." |
 | 0:45–1:10 | **Serah terima** | Pemilik memotret kamera (hash muncul). Raka scan QR dan menandatangani. Status "Aktif", countdown berjalan, `userOf` = Raka (tampilkan di BaseScan). |
 | 1:10–1:35 | **Telat → denda otomatis** | (Mode demo: 1 hari = 2 menit.) Raka mengembalikan 3 "jam" terlambat. Denda dipotong otomatis, sisa deposit kembali, sewa masuk ke pemilik. Tanpa chat, tanpa debat. |
 | 1:35–2:00 | **Reputasi** | Profil Raka: 5 sewa sukses dari pemilik berbeda. Booking berikutnya deposit **hanya 50%**. "Rekam jejakmu menggantikan KTP-mu." |
@@ -253,10 +254,10 @@ Untuk barang yang harganya mengikuti dolar (kamera/lensa impor), nilai barang di
 
 ## 7. Outline pitch 5 slide (dipetakan ke kriteria)
 1. **Masalah. *Real-World Utility 25%*.** KTP sebagai jaminan: dilarang Dukcapil untuk sewa kendaraan, berisiko PDP, dan tidak melindungi pemilik (kasus Bandung, Garut, Probolinggo, Kediri, Gowa). Satu kalimat: *"Jaminan yang merugikan dua pihak."*
-2. **Solusi & demo. *Demo/UX 10%*.** 3 layar: booking tanpa KTP, serah terima QR, denda otomatis. Login Google, tanpa gas.
+2. **Solusi & demo. *Demo/UX 10%*.** 3 layar: booking tanpa KTP, serah terima QR, denda otomatis. Connect MetaMask, dengan Sepolia ETH untuk biaya jaringan.
 3. **Kenapa onchain. *Onchain Implementation 25%*.** Diagram state + 5 alasan (§4): escrow netral, ERC-4907 auto-expiry, reputasi portabel, bukti serah terima, eksekusi otomatis.
 4. **Apa yang baru. *Innovation 20%*.** Reputasi yang **menurunkan deposit** (bukan sekadar rating), penjamin gotong royong sebagai jaminan sosial, sengketa berbasis bond tanpa pihak ketiga, dan hak pakai ERC-4907 yang bisa membuka kunci fisik.
-5. **Kelayakan & rencana. *Feasibility & Scalability 20%*.** Sudah live di Base Sepolia. Biaya gas disponsori. Go-to-market: rental kamera & outdoor di Jakarta/Bandung (B2B SaaS + fee per transaksi), lalu kendaraan. Roadmap: Kleros/UMA di mainnet, smart lock, IDRX mainnet, asuransi barang.
+5. **Kelayakan & rencana. *Feasibility & Scalability 20%*.** Sudah live di Base Sepolia. Biaya gas testnet dibayar wallet pengguna. Go-to-market: rental kamera & outdoor di Jakarta/Bandung (B2B SaaS + fee per transaksi), lalu kendaraan. Roadmap: Kleros/UMA di mainnet, smart lock, IDRX mainnet, asuransi barang.
 
 ---
 
@@ -270,7 +271,7 @@ Untuk barang yang harganya mengikuti dolar (kamera/lensa impor), nilai barang di
 | Barang lebih mahal dari deposit (motor/mobil) | MVP fokus ke barang bernilai menengah (kamera, outdoor, PS, kebaya). Kendaraan masuk roadmap dengan kombinasi deposit + penjamin + GPS |
 | Pemilik curang menolak tanda tangan pengembalian | Penyewa bisa memanggil `confirmReturn` sepihak dengan bukti foto, lalu jendela klaim berjalan. Sengketa via bond/juri |
 | Stablecoin & regulasi (rupiah-stablecoin, pembayaran) | Testnet memakai mock. Untuk produksi: IDRX/stablecoin rupiah yang tersedia + kajian regulasi pembayaran (roadmap, tidak memengaruhi MVP) |
-| Kunci privat embedded wallet / kehilangan akun | Privy recovery (email/social). Hindari wallet seed phrase untuk pengguna awam |
+| Kehilangan akses wallet | Pemulihan mengikuti MetaMask. Aplikasi tidak meminta atau menyimpan seed phrase/private key |
 | Bug kontrak menahan dana | Tes Foundry untuk semua cabang state, `ReentrancyGuard`, tidak ada fungsi admin untuk menarik dana pengguna, freeze kontrak sebelum demo |
 | Waktu 24 jam | Must-have dikunci jam 20.00. Nice-to-have hanya jika tes hijau |
 

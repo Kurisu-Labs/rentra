@@ -13,7 +13,7 @@ export function TransactionFeedback({
     <div aria-live="polite" aria-atomic="true">
       {pending && (
         <p className="notice">
-          Check your account for a confirmation request. Once submitted, wait for the transaction to
+          Check MetaMask for a confirmation request. Once submitted, wait for the transaction to
           finish.
         </p>
       )}

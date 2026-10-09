@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { Icon } from "@/components/icon";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
@@ -10,8 +10,8 @@ import { encodeFunctionData } from "viem";
 import { useRentraTx } from "@/components/use-tx";
 import {
   addresses,
+  chain,
   configured,
-  privyConfigured,
   rentalEscrowAbi,
   rentalItemAbi,
   statusLabel,
@@ -22,14 +22,15 @@ import { Countdown } from "@/components/countdown";
 export default function MyRentalsPage() {
   const { address } = useAccount();
   const tx = useRentraTx();
-  const { login } = usePrivy();
   const next = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "nextRentalId",
     query: { enabled: configured },
   });
   const demo = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "demoMode",
@@ -45,6 +46,7 @@ export default function MyRentalsPage() {
 
   const reads = useReadContracts({
     contracts: ids.map((id) => ({
+      chainId: chain.id,
       address: addresses.escrow,
       abi: rentalEscrowAbi,
       functionName: "rentals",
@@ -98,10 +100,8 @@ export default function MyRentalsPage() {
         <div className="empty-state">
           <Icon name="box" size={36} />
           <h2>Your next adventure belongs here.</h2>
-          <p>Sign in to see the items you’re renting or lending.</p>
-          <button disabled={!privyConfigured} onClick={() => login()}>
-            Sign in
-          </button>
+          <p>Connect MetaMask to see the items you’re renting or lending.</p>
+          <WalletConnectButton />
         </div>
       )}
       {demo.data === true && (
@@ -198,6 +198,7 @@ function RentalCard({
   onFinalize: () => void;
 }) {
   const expires = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "userExpires",

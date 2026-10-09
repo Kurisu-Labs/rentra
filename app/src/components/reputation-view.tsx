@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAccount, useReadContract } from "wagmi";
 import { isAddress } from "viem";
 import type { Address } from "viem";
-import { addresses, configured, reputationAbi } from "@/lib/contracts";
+import { addresses, chain, configured, reputationAbi } from "@/lib/contracts";
 import { formatIDR, shortAddr, tupleAt } from "@/lib/format";
 import { Icon } from "@/components/icon";
+import { WalletConnectButton } from "@/components/wallet-connect-button";
 
 export function ReputationView({ initial }: { initial?: string }) {
   const { address: connected } = useAccount();
@@ -18,6 +19,7 @@ export function ReputationView({ initial }: { initial?: string }) {
     Address | undefined;
 
   const score = useReadContract({
+    chainId: chain.id,
     address: addresses.reputation,
     abi: reputationAbi,
     functionName: "scoreOf",
@@ -25,6 +27,7 @@ export function ReputationView({ initial }: { initial?: string }) {
     query: { enabled: configured && Boolean(target) },
   });
   const factor = useReadContract({
+    chainId: chain.id,
     address: addresses.reputation,
     abi: reputationAbi,
     functionName: "depositFactorBps",
@@ -32,6 +35,7 @@ export function ReputationView({ initial }: { initial?: string }) {
     query: { enabled: configured && Boolean(target) },
   });
   const maxValue = useReadContract({
+    chainId: chain.id,
     address: addresses.reputation,
     abi: reputationAbi,
     functionName: "maxSuccessfulValue",
@@ -39,6 +43,7 @@ export function ReputationView({ initial }: { initial?: string }) {
     query: { enabled: configured && Boolean(target) },
   });
   const defaulted = useReadContract({
+    chainId: chain.id,
     address: addresses.reputation,
     abi: reputationAbi,
     functionName: "hasDefaulted",
@@ -118,7 +123,8 @@ export function ReputationView({ initial }: { initial?: string }) {
             <div className="empty-state">
               <Icon name="shield" size={32} />
               <h3>Your reputation starts with you.</h3>
-              <p>Sign in or enter an account address to view its rental record.</p>
+              <p>Connect MetaMask or enter a wallet address to view its rental record.</p>
+              <WalletConnectButton />
             </div>
           )}
           {configured && target && loading && (

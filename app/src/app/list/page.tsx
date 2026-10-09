@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useAccount } from "wagmi";
+import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { encodeFunctionData } from "viem";
 import { useRentraTx } from "@/components/use-tx";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { Icon } from "@/components/icon";
-import { addresses, configured, privyConfigured, rentalItemAbi } from "@/lib/contracts";
+import { addresses, configured, rentalItemAbi } from "@/lib/contracts";
 import { rpToWei } from "@/lib/format";
 
 export default function ListPage() {
   const tx = useRentraTx();
-  const { authenticated, login } = usePrivy();
+  const { isConnected } = useAccount();
   const [name, setName] = useState("");
   const [value, setValue] = useState("3000000");
   const [rate, setRate] = useState("150000");
@@ -19,7 +20,7 @@ export default function ListPage() {
   const [grace, setGrace] = useState("24");
 
   async function submit() {
-    if (!configured || !authenticated || !addresses.item || !name.trim()) return;
+    if (!configured || !isConnected || !addresses.item || !name.trim()) return;
     const data = encodeFunctionData({
       abi: rentalItemAbi,
       functionName: "listItem",
@@ -119,19 +120,13 @@ export default function ListPage() {
             been returned. Late fees still apply during this time.
           </span>
           <div className="row">
-            {authenticated ? (
+            {isConnected ? (
               <button type="submit" disabled={!configured || tx.pending || !name.trim()}>
                 {tx.pending ? "Publishing your item…" : "Publish listing"}
                 <Icon name="arrow" size={16} />
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={!configured || !privyConfigured}
-                onClick={() => login()}
-              >
-                Sign in to publish
-              </button>
+              <WalletConnectButton label="Connect MetaMask to publish" />
             )}
           </div>
           <TransactionFeedback {...tx} />

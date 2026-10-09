@@ -6,14 +6,14 @@ import { useParams } from "next/navigation";
 import { useAccount, useReadContract, useSignTypedData } from "wagmi";
 import { encodeFunctionData } from "viem";
 import type { Address } from "viem";
-import { usePrivy } from "@privy-io/react-auth";
+import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { Icon } from "@/components/icon";
 import { useRentraTx } from "@/components/use-tx";
 import {
   addresses,
+  chain,
   configured,
-  privyConfigured,
   mockIdrAbi,
   rentalEscrowAbi,
   rentalItemAbi,
@@ -103,8 +103,7 @@ export default function ItemPage() {
 }
 
 function OnchainItem({ tokenId }: { tokenId: bigint }) {
-  const { address } = useAccount();
-  const { login, authenticated } = usePrivy();
+  const { address, isConnected } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
   const tx = useRentraTx();
   const now = Math.floor(Date.now() / 1000);
@@ -112,30 +111,35 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   const [end, setEnd] = useState(unixToLocalInput(now + 2 * 86400));
 
   const terms = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "terms",
     args: [tokenId],
   });
   const uri = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "tokenURI",
     args: [tokenId],
   });
   const owner = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "ownerOf",
     args: [tokenId],
   });
   const user = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "userOf",
     args: [tokenId],
   });
   const expires = useReadContract({
+    chainId: chain.id,
     address: addresses.item,
     abi: rentalItemAbi,
     functionName: "userExpires",
@@ -158,6 +162,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   }, [end]);
 
   const quoteDeposit = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "quoteDeposit",
@@ -165,6 +170,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     query: { enabled: Boolean(address) },
   });
   const quoteRent = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "quoteRent",
@@ -172,6 +178,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     query: { enabled: Boolean(startUnix && endUnix && endUnix > startUnix) },
   });
   const factor = useReadContract({
+    chainId: chain.id,
     address: addresses.reputation,
     abi: reputationAbi,
     functionName: "depositFactorBps",
@@ -179,6 +186,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     query: { enabled: Boolean(address) },
   });
   const balance = useReadContract({
+    chainId: chain.id,
     address: addresses.idr,
     abi: mockIdrAbi,
     functionName: "balanceOf",
@@ -186,6 +194,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     query: { enabled: Boolean(address) },
   });
   const nonce = useReadContract({
+    chainId: chain.id,
     address: addresses.idr,
     abi: mockIdrAbi,
     functionName: "nonces",
@@ -259,6 +268,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   const insufficientBalance =
     total !== undefined && balanceValue !== undefined && balanceValue < total;
   const locked = useReadContract({
+    chainId: chain.id,
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "isLocked",
@@ -358,21 +368,13 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
             Rental time rounds up to full days. The remaining deposit is released after the 24-hour
             claim window, subject to fees or claims. Demo mode speeds up this window.
           </p>
-          {!authenticated ? (
-            <button
-              className="full-width"
-              type="button"
-              disabled={!privyConfigured}
-              onClick={() => login()}
-            >
-              Sign in to book <Icon name="arrow" size={16} />
-            </button>
+          {!isConnected ? (
+            <WalletConnectButton label="Connect MetaMask to book" className="full-width" />
           ) : (
             <>
               <p className="small muted">
                 Test balance: {formatIDR(balanceValue)}. Test mIDR has no real monetary value. A
-                small amount of Sepolia ETH is needed for network fees unless sponsorship is
-                enabled.
+                small amount of Sepolia ETH in MetaMask is needed for network fees.
               </p>
               <button
                 type="button"
