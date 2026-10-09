@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useAccount, useReadContract, useSignTypedData } from "wagmi";
 import { encodeFunctionData } from "viem";
 import type { Address, Hex } from "viem";
-import { usePrivy } from "@privy-io/react-auth";
+import { useSession } from "@/components/session";
 import { PhotoHash } from "@/components/photo-hash";
 import { useRentraTx } from "@/components/use-tx";
 import {
@@ -53,7 +53,7 @@ export default function ItemPage() {
 
 function OnchainItem({ tokenId }: { tokenId: bigint }) {
   const { address } = useAccount();
-  const { login, authenticated } = usePrivy();
+  const { login, authenticated } = useSession();
   const { signTypedDataAsync } = useSignTypedData();
   const tx = useRentraTx();
   const now = Math.floor(Date.now() / 1000);

@@ -1,27 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { useSendTransaction } from "@privy-io/react-auth";
+import { createContext, useContext, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Address, Hex } from "viem";
-import { chain } from "@/lib/contracts";
 import { errText } from "@/lib/format";
 
+export type TxSender = (to: Address, data: Hex) => Promise<Hex>;
+
+const TxSenderContext = createContext<TxSender | null>(null);
+
+export function TxSenderProvider({ send, children }: { send: TxSender; children: React.ReactNode }) {
+  return <TxSenderContext.Provider value={send}>{children}</TxSenderContext.Provider>;
+}
+
 export function useRentraTx() {
-  const { sendTransaction } = useSendTransaction();
+  const sendTx = useContext(TxSenderContext);
   const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
 
   async function send(to: Address, data: Hex) {
+    if (!sendTx) throw new Error("Pengirim transaksi belum siap");
     setPending(true);
     setError(null);
     try {
-      const result = await sendTransaction({ to, data, chainId: chain.id }, { sponsor: true });
-      setHash(result.hash);
+      const txHash = await sendTx(to, data);
+      setHash(txHash);
       await queryClient.invalidateQueries();
-      return result.hash;
+      return txHash;
     } catch (caught) {
       const message = errText(caught);
       setError(message);

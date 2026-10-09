@@ -93,6 +93,18 @@ npm run dev
 
 `npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length) and empty contract addresses. The catalog then shows three example items and disables booking until addresses are set. Login itself needs a real Privy app id.
 
+### Local Anvil (no Privy, no testnet key)
+
+`scripts/local-dev.sh` starts Anvil on chain id 84532 (the Base Sepolia id, so the app chain matches), deploys the four contracts with demo mode on, lists two items from the owner account, and writes `app/.env.local`. Then:
+
+```bash
+cd app
+npm install
+npm run dev
+```
+
+Open the app and use the **Akun lokal** switch. **Pemilik** (`0xf39F…2266`) owns the seeded items. **Penyewa** (`0x7099…79C8`) can faucet mock rupiah and book. Switch back to the owner for handover. These are Anvil's unlocked dev accounts. The switch only turns on when `NEXT_PUBLIC_LOCAL_WALLET=1` and the RPC host is loopback.
+
 ## Deploy to Base Sepolia
 
 ```bash

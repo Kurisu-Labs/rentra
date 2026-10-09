@@ -1,12 +1,35 @@
 import type { Abi, Address } from "viem";
-import { baseSepolia } from "viem/chains";
+import { baseSepolia, type Chain } from "viem/chains";
 import mockIdrJson from "@/abi/MockIDR.json";
 import rentalItemJson from "@/abi/RentalItem.json";
 import reputationJson from "@/abi/Reputation.json";
 import rentalEscrowJson from "@/abi/RentalEscrow.json";
 
-export const chain = baseSepolia;
 export const rpcUrl = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || "https://sepolia.base.org";
+
+function isLoopbackRpc(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+/// Local Anvil mode. Refuses to turn on unless the RPC is loopback, so the unlocked
+/// dev accounts cannot be pointed at a public chain.
+export const localWallet =
+  process.env.NEXT_PUBLIC_LOCAL_WALLET === "1" && isLoopbackRpc(rpcUrl);
+
+export const chain: Chain = localWallet
+  ? {
+      ...baseSepolia,
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    }
+  : baseSepolia;
 
 // Privy rejects any app id whose length is not exactly 25. A real id comes from the
 // Privy dashboard; this placeholder only lets the UI mount for local builds.
