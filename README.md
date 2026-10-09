@@ -69,7 +69,7 @@ Deploy turns demo mode on. Time is scaled from each rental's booking timestamp b
 
 ## What is stubbed or left out
 
-- No Ethereum Sepolia deployment in this repository. Run the deploy script, then set the `NEXT_PUBLIC_*_ADDRESS` variables (or commit the written `sepolia.json`). The app reads env vars first and falls back to `app/src/deployments/sepolia.json`.
+- The app reads `NEXT_PUBLIC_*_ADDRESS` first and falls back to `app/src/deployments/sepolia.json`. Those addresses are filled in below.
 - No IPFS upload. Only the hash is stored onchain.
 - The handover screen shows a QR and accepts a pasted payload. It does not open the camera to scan.
 - `GuarantorVault` and `JurorPool` (Pyth Entropy) are not built. The `guarantee` field stays zero. `escalate` only starts the timeout path.
@@ -91,7 +91,7 @@ npm install
 npm run dev
 ```
 
-`npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length) and empty contract addresses. The catalog then shows three example items and disables booking until addresses are set. Login itself needs a real Privy app id.
+`npm run build` succeeds with the 25-character placeholder `NEXT_PUBLIC_PRIVY_APP_ID=clplaceholderprivyappid01` (Privy rejects any other length). Login itself needs a real Privy app id. Contract addresses come from the committed Sepolia JSON unless the `NEXT_PUBLIC_*_ADDRESS` variables override them.
 
 ## Deploy to Ethereum Sepolia
 
@@ -102,15 +102,32 @@ cd contracts
 cp .env.example .env
 # set DEPLOYER_PRIVATE_KEY, and SEPOLIA_RPC_URL if you are not using the public endpoint
 
-forge script script/Deploy.s.sol --rpc-url sepolia --broadcast
+forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --slow -g 800
 ```
 
-`foundry.toml` maps the `sepolia` endpoint to `SEPOLIA_RPC_URL`. The script also reads `DEPLOYER_PRIVATE_KEY` and refuses any chain other than 11155111. It deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, wires `setEscrow`, prints the addresses, and writes:
+Since Sepolia's Glamsterdam upgrade (Oct 6, 2026), forge underestimates contract-creation gas. `--slow -g 800` is required. `foundry.toml` maps the `sepolia` endpoint to `SEPOLIA_RPC_URL`. The script also reads `DEPLOYER_PRIVATE_KEY` and refuses any chain other than 11155111. It deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, wires `setEscrow`, prints the addresses, and writes:
 
 - `contracts/deployments/sepolia.json`
 - `app/src/deployments/sepolia.json`
 
 Do not commit an RPC URL that contains an API key. Add `--verify` only after `ETHERSCAN_API_KEY` is set in the environment.
+
+## Deployed on Ethereum Sepolia
+
+Deployer: [0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf](https://sepolia.etherscan.io/address/0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf). Demo mode is on. The same addresses are in `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json`.
+
+| Contract | Address |
+|---|---|
+| MockIDR | [0x3740Bf82073E6889298631E8B4dC72b5358b6a39](https://sepolia.etherscan.io/address/0x3740Bf82073E6889298631E8B4dC72b5358b6a39) |
+| RentalItem | [0x229918cCE2f140d40EE4A4187b62A5F4bc5Dd67c](https://sepolia.etherscan.io/address/0x229918cCE2f140d40EE4A4187b62A5F4bc5Dd67c) |
+| Reputation | [0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7](https://sepolia.etherscan.io/address/0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7) |
+| RentalEscrow | [0x888d7200C2fC016a8Adde7328092B40BB14C5cab](https://sepolia.etherscan.io/address/0x888d7200C2fC016a8Adde7328092B40BB14C5cab) |
+
+Since Sepolia's Glamsterdam upgrade (Oct 6, 2026), forge underestimates contract-creation gas. Deploy with:
+
+```bash
+forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --slow -g 800
+```
 
 ## Vercel
 
