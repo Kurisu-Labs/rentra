@@ -63,6 +63,8 @@ export const STATUS_LABEL = [
   "Settled",
   "Not returned",
   "Cancelled",
+  "Return awaiting acknowledgement",
+  "Return disputed",
 ] as const;
 
 export function statusLabel(status: number): string {

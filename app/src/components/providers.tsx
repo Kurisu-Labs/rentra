@@ -5,6 +5,7 @@ import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Header } from "@/components/header";
+import { ProtocolNotice } from "@/components/use-protocol";
 import { chain } from "@/lib/contracts";
 import { wagmiConfig } from "@/lib/wallet";
 
@@ -40,7 +41,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               Skip to content
             </a>
             <Header />
-            <main id="main-content">{children}</main>
+            <main id="main-content"><ProtocolNotice />{children}</main>
             <footer className="footer">
               <div className="footer-inner">
                 <div>
