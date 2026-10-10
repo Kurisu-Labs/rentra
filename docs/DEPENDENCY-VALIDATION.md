@@ -1,14 +1,14 @@
 # Frontend dependency security patch
 
-The initial preview build reported two high-severity vulnerable transitive packages: PostCSS 8.4.31 and a nested ws 8.18.0. Targeted npm overrides now pin **PostCSS 8.5.29** and **ws 8.22.0**, while retaining Next.js 15 and wagmi 2. Overrides apply only to package major version 8, preserving other major versions if they appear in the dependency tree.
+The initial preview build reported two high-severity vulnerable transitive packages: PostCSS 8.4.31 and a nested ws 8.18.0. Targeted npm overrides now pin **PostCSS 8.5.29** and **ws 8.22.0**, while retaining Next.js 15 and wagmi 2. The ws override is scoped to viem and its isows peer integration. WalletConnect’s legacy ws 7.5.13 remains in its own subtree, while the vulnerable shared ws 8.18.0 copy is removed.
 
-The lockfile changed four entries: one PostCSS package and three ws copies. No application source, ABI, contract, or deployment address changed. The previously confirmed Sepolia transactions remain valid evidence for the unchanged protocol and signing definitions.
+The final lockfile upgrades PostCSS and hoists the patched ws 8 copy for the viem/isows integration, with ws 7 retained under its legacy consumer. No application source, ABI, contract, or deployment address changed. The previously confirmed Sepolia transactions remain valid evidence for the unchanged protocol and signing definitions.
 
 ## Validation
 
-A clean `npm ci`, all seven Node tests, and `npm run build` passed on Node 22.23.3. The installed audit moved from **2 high / 24 moderate** to **0 critical / 0 high / 22 moderate**. `npm audit --audit-level=high` passed and is now part of the app CI job, so a future high/critical advisory fails that job.
+A clean `npm ci`, all seven Node tests, and `npm run build` passed on Node 22.23.3 with npm 10.9.9, matching CI. npm 11.6.2 also passed lockfile validation, and `npm ls ws --all` reported a valid dependency tree. User/global npm configuration was excluded from the final validation. The installed audit moved from **2 high / 24 moderate** to **0 critical / 0 high / 22 moderate**. `npm audit --audit-level=high` passed and is now part of the app CI job, so a future high/critical advisory fails that job.
 
-[Machine-readable validation](evidence/dependency-v2/validation.json) binds the result to package/lockfile SHA-256 hashes and records all four changed package versions. The audit is a timestamped registry result; 22 moderate findings remain for a separate reachability and compatibility review before production acceptance.
+[Current machine-readable validation](evidence/dependency-v2/validation-npm10.json) binds the final result to package/lockfile SHA-256 hashes and records the dependency relocations. The [earlier npm 11-only snapshot](evidence/dependency-v2/validation.json) is historical; its broader override did not install consistently with npm 10 and is superseded by the scoped resolution. The audit is a timestamped registry result; 22 moderate findings remain for a separate reachability and compatibility review before production acceptance.
 
 The hosted preview is rebuilt from the patched app before being identified as the current preview in [PREVIEW-V2.md](PREVIEW-V2.md). This report's initial checks are local; the hosted report records the exact deployed commit and subsequent browser results.
 
