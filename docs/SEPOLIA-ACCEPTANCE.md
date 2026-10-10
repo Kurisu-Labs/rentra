@@ -58,7 +58,7 @@ After finalization, verify status Settled, zero remaining deposit, item unlocked
 
 ## Hosted browser evidence
 
-The [public preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) displayed the fixture's live prices and the renter's live reputation. Opening rental #5 through My rentals loaded the Returned status, Rp500,000 remaining deposit, and the matching real-time deadline. Downloading its evidence receipt succeeded; chain ID, escrow, rental ID, and deadline matched the independently checked state.
+The [initial public preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) displayed the fixture's live prices and the renter's live reputation. Opening rental #5 through My rentals loaded the Returned status, Rp500,000 remaining deposit, and the matching real-time deadline. Downloading its evidence receipt succeeded; chain ID, escrow, rental ID, and deadline matched the independently checked state.
 
 - [Public transaction/check evidence](evidence/sepolia-v2/acceptance.json)
 - [Downloaded browser receipt](evidence/sepolia-v2/rental-5-browser-receipt.json)
@@ -66,3 +66,5 @@ The [public preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) dis
 - [Hosted build and responsive checks](PREVIEW-V2.md)
 
 PR #5 remains draft. Complete the real claim-window finalization, an actual MetaMask connection/sign/send journey, and the dependency advisory follow-up documented in the preview report before production acceptance.
+
+The current [patched frontend preview](https://rentra-ke155ds3k-rakhargos-projects.vercel.app) has since repeated the v2 guard, responsive/catalog, wallet-modal, and rental #5 reads. Its contract addresses and signing source are unchanged. High/critical dependency findings are resolved; 22 moderate findings remain documented in [DEPENDENCY-VALIDATION.md](DEPENDENCY-VALIDATION.md).

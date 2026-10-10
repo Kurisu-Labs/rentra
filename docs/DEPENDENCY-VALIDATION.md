@@ -20,3 +20,5 @@ The hosted preview is rebuilt from the patched app before being identified as th
 - [ws memory exhaustion advisory](https://github.com/advisories/GHSA-96hv-2xvq-fx4p)
 
 These package advisories explain the dependency update. No claim of a reachable Rentra exploit is made from the audit alone. The optional wallet SDK build warnings remain separate from this patch.
+
+The patched hosted Preview is READY from commit `de8e4915ba8dfee8d2209c48f6d5920f05c2b3a4`. [CI run 38033035515](https://github.com/Kurisu-Labs/rentra/actions/runs/38033035515) passed contracts, app, and the high/critical audit gate. The [current preview report](PREVIEW-V2.md) records its public HTTP and browser checks.

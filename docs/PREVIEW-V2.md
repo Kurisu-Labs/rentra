@@ -1,6 +1,18 @@
 # Rentra v2 frontend preview
 
-Public preview: [Open Rentra](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app).
+Current public preview: [Open Rentra](https://rentra-ke155ds3k-rakhargos-projects.vercel.app).
+
+The current deployment is `dpl_A9zBGwf9U9pJvXcN2pcinF3Vivsn`, built from `de8e4915ba8dfee8d2209c48f6d5920f05c2b3a4` with Node 22. It is READY with the Preview target. It includes the [dependency security patch and npm 10 compatibility fix](DEPENDENCY-VALIDATION.md). [CI run 38033035515](https://github.com/Kurisu-Labs/rentra/actions/runs/38033035515) passed both jobs, including the new high/critical audit gate.
+
+Current hosted checks passed: four public routes and 18 referenced JavaScript assets returned HTTP 200, bundles contain all four v2 addresses and the public RPC, the v2 guard completed, and rental #5 displayed Returned, Rp500,000 held, and the matching 11 October claim deadline. Navigation and the wallet modal worked. All four main pages had no measured horizontal overflow at 375/768/1440 CSS pixels; the fully loaded E2E catalog also passed those widths. No application-origin console errors were observed.
+
+The return page's before/after screenshots have identical dimensions and zero pixels with any RGB channel difference above 20. This is a matched check of that page; the broader visual-baseline, full accessibility, Core Web Vitals, and wallet-extension limitations below still apply.
+
+Current evidence: [HTTP/bundle checks](evidence/preview-v2-patched/http-verification.json), [layout checks](evidence/preview-v2-patched/layout-checks.json), [loaded catalog checks](evidence/preview-v2-patched/loaded-catalog-layouts.json), [return comparison](evidence/preview-v2-patched/return-visual-comparison.json), [desktop return](evidence/preview-v2-patched/return-1440.jpg), [desktop catalog](evidence/preview-v2-patched/catalog-1440.jpg), [mobile catalog](evidence/preview-v2-patched/catalog-375.jpg).
+
+## Initial preview snapshot
+
+The initial preview remains at [the original URL](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app). The validation below records that earlier build and its original evidence; it is superseded by the patched deployment above.
 
 This deployment was built from `6e92f7ceaa0c2f53f6c5c5f4922a3854ad358cc4` with Node.js 22, `npm ci`, and `npm run build`. Vercel reports deployment `dpl_AchuXJG4t9ZeGCZeYokztVQwj6qr` as **READY**, with the Preview target (`target: null` in its API). It uses the four committed v2 contract addresses and the public Sepolia RPC. No project environment variables are configured.
 
@@ -26,7 +38,7 @@ The initial catalog screenshots were captured before the onchain E2E listing was
 
 The hosted Node 22 build passed. It emitted optional MetaMask/WalletConnect dependency warnings (`@react-native-async-storage/async-storage`, `pino-pretty`) and an existing CSS compatibility warning. The installed dependency audit reported two high-severity transitive packages, `postcss` and `ws`; the suggested automatic fixes involve major Next.js/wagmi upgrades. No automatic major dependency upgrade was applied as part of publishing the preview.
 
-Review and resolve the applicable dependency advisories before production acceptance. Audit output is a dependency finding, not proof that an attacker can reach the advisory's trigger through Rentra. A full accessibility review, an actual MetaMask wallet journey, and completion of the real 24-hour claim window remain separate acceptance checks.
+The subsequent targeted patch removed the high/critical findings; see [DEPENDENCY-VALIDATION.md](DEPENDENCY-VALIDATION.md) for the current audit and the 22 moderate findings still requiring review before production acceptance. Audit output is a dependency finding, not proof that an attacker can reach the advisory's trigger through Rentra. A full accessibility review, an actual MetaMask wallet journey, and completion of the real 24-hour claim window remain separate acceptance checks.
 
 ## Validation commands
 

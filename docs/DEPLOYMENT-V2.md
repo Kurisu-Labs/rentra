@@ -41,4 +41,4 @@ Funded multi-wallet Sepolia contract integration has since completed 31 transact
 
 Frontend defaults now target this v2 instance. Existing hosted builds require a rebuild/redeploy, and any stale address overrides must be removed or updated as a consistent set. No production frontend publication or PR merge is implied by the contract deployment.
 
-A separate [public v2 frontend preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) has since been built and checked against this instance. See [PREVIEW-V2.md](PREVIEW-V2.md) for the exact source commit, target, browser evidence, and remaining acceptance work.
+A separate [public v2 frontend preview](https://rentra-ke155ds3k-rakhargos-projects.vercel.app) has since been built and checked against this instance. See [PREVIEW-V2.md](PREVIEW-V2.md) for the exact source commit, target, browser evidence, and remaining acceptance work.

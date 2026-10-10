@@ -1,0 +1,44 @@
+{
+  "url": "https://rentra-ke155ds3k-rakhargos-projects.vercel.app",
+  "deploymentId": "dpl_A9zBGwf9U9pJvXcN2pcinF3Vivsn",
+  "readyState": "READY",
+  "target": null,
+  "sourceCommit": "de8e4915ba8dfee8d2209c48f6d5920f05c2b3a4",
+  "framework": "nextjs",
+  "nodeVersion": "22.x",
+  "routes": [
+    {
+      "path": "/",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    },
+    {
+      "path": "/my",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    },
+    {
+      "path": "/list",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    },
+    {
+      "path": "/reputation",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    }
+  ],
+  "embeddedV2Contracts": [
+    "MockIDR",
+    "RentalEscrow",
+    "RentalItem",
+    "Reputation"
+  ],
+  "publicRpcFound": true,
+  "assetCount": 18,
+  "checkedAt": "2026-10-10T07:05:14.191155+00:00"
+}
