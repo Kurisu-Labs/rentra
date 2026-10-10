@@ -85,6 +85,8 @@ Deploy defaults to real time. Set `RENTRA_DEMO_MODE=true` explicitly to accelera
 
 ## Run and test
 
+The frontend requires **Node.js 22 or newer**. `app/package.json` sets `engines.node` to `>=22`, and `.nvmrc` at the repository root and in `app/` pins `22`. CI uses Node 22. `npm test` and `npm run test:local` pass `--experimental-strip-types` to Node. Node 20 rejects that flag with `bad option` before any test runs, so `npm test` checks the version first and prints which Node.js release to install. `npm run build` is also run on Node 22.
+
 ```bash
 # contracts
 cd contracts
@@ -92,7 +94,7 @@ forge build
 forge test
 node ../app/scripts/sync-abis.mjs --check
 
-# app (RPC and contract defaults are included)
+# app (Node.js 22+; RPC and contract defaults are included)
 cd app
 cp .env.example .env.local
 npm install
@@ -149,7 +151,14 @@ Chain id `11155111`. The script does not broadcast unless you pass `--broadcast`
 
 Follow the copy-paste commands in [docs/DEPLOY-V2.md](docs/DEPLOY-V2.md): configure a local encrypted keystore, simulate with the public sender address, broadcast with `--account` and `--sender`, and complete source verification. `foundry.toml` uses the Etherscan V2 Sepolia endpoint. Never put a private key in a CLI argument or commit an API-key-bearing RPC URL.
 
-Both dry runs and broadcasts write only `contracts/deployments/sepolia.candidate.json`. From `app/`, `npm run verify:deployment` checks live bytecode, chain, protocol version, admins, contract links, clock mode, and token metadata at one block. It leaves the manifests unchanged. After inspecting receipts and source verification, `npm run verify:deployment -- --promote` updates both manifests with the same verified snapshot. Simulated/mismatched candidates and local Anvil promotion are rejected. The current files contain the successfully promoted v2 instance; dry runs for any future instance cannot replace them.
+Both dry runs and broadcasts write only `contracts/deployments/sepolia.candidate.json`. From `app/`, `npm run verify:deployment` checks live bytecode, chain, protocol version, admins, contract links, clock mode, and token metadata at one block. It leaves the manifests unchanged. When `SEPOLIA_RPC_URL` is unset or blank, verification uses the public Sepolia endpoint `https://ethereum-sepolia-rpc.publicnode.com` (the same default as `NEXT_PUBLIC_SEPOLIA_RPC_URL`) and logs that URL. Set `SEPOLIA_RPC_URL` to override the endpoint; the log names the host and omits credentials embedded in the URL. Those onchain checks are unchanged. No API key is required to verify the committed instance:
+
+```bash
+cd app
+npm run verify:deployment -- --candidate src/deployments/sepolia.json
+```
+
+After inspecting receipts and source verification, `npm run verify:deployment -- --promote` updates both manifests with the same verified snapshot. Simulated/mismatched candidates and local Anvil promotion are rejected. The current files contain the successfully promoted v2 instance; dry runs for any future instance cannot replace them.
 
 ## Vercel
 
