@@ -9,6 +9,8 @@ cd /home/rakhargo/projects/rentra/app
 npm run verify:deployment -- --candidate src/deployments/sepolia.json
 ```
 
+Perintah ini tidak membutuhkan RPC ber-credential. Jika `SEPOLIA_RPC_URL` kosong, verifier memakai `https://ethereum-sepolia-rpc.publicnode.com` (default yang sama dengan `NEXT_PUBLIC_SEPOLIA_RPC_URL`) dan mencetak URL yang dipakai. Set `SEPOLIA_RPC_URL` untuk menimpa endpoint; log hanya menampilkan host bila URL berisi credential. Pemeriksaan onchain tidak dilonggarkan.
+
 ## 1. Persiapan
 
 Gunakan branch `feature/rental-safety-v2`, Node.js 22, dan Foundry. CI memakai Foundry v1.8.5; implementasi juga diuji lokal dengan Foundry 1.5.1 dan Solidity 0.8.28. Pastikan working tree bersih sebelum mulai. Jangan pull/reset di checkout yang memiliki perubahan lokal.
@@ -81,7 +83,7 @@ Jika broadcast terputus, periksa receipt dan nonce terlebih dahulu. `--resume` h
 
 ## 4. Verifikasi onchain, lalu promosi alamat
 
-Verifier mengecek chain, bytecode di empat alamat, protocol v2, admin, cross-contract references, demo mode, dan metadata mIDR pada satu snapshot block. Tidak ada private key yang diperlukan.
+Verifier mengecek chain, bytecode di empat alamat, protocol v2, admin, cross-contract references, demo mode, dan metadata mIDR pada satu snapshot block. Tidak ada private key yang diperlukan. RPC publik di atas cukup bila `SEPOLIA_RPC_URL` tidak di-set; baris log menyebut endpoint yang benar-benar dipakai.
 
 ```bash
 cd /home/rakhargo/projects/rentra/app
