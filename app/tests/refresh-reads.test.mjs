@@ -5,8 +5,7 @@ import {
   shouldStopRefresh,
   startRefreshGeneration,
 } from "../src/lib/refresh-reads.ts";
-import { expectIncreased, expectRentalStatus } from "../src/lib/tx-expectations.ts";
-import { statusIs } from "../src/lib/rental-state.ts";
+import { expectIncreased, expectRentalStatus, statusIs } from "../src/lib/rental-state.ts";
 
 const base = {
   maxAttempts: 8,
