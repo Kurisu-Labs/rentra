@@ -1,7 +1,31 @@
 import { readFile } from "node:fs/promises";
 import { isAddress, zeroAddress } from "viem";
 
+// Same public endpoint as the NEXT_PUBLIC_SEPOLIA_RPC_URL default.
+export const PUBLIC_SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
 const names = ["MockIDR", "RentalItem", "Reputation", "RentalEscrow"];
+
+export function resolveSepoliaRpcUrl(env = process.env) {
+  const configured = typeof env.SEPOLIA_RPC_URL === "string" ? env.SEPOLIA_RPC_URL.trim() : "";
+  if (configured) return { url: configured, source: "SEPOLIA_RPC_URL" };
+  return { url: PUBLIC_SEPOLIA_RPC, source: "public default" };
+}
+
+export function formatSepoliaRpcLog(resolved) {
+  let label = "an unreadable RPC URL";
+  let omittedCredentials = false;
+  try {
+    const parsed = new URL(resolved.url);
+    omittedCredentials = Boolean(parsed.username || parsed.password || parsed.search || (parsed.pathname && parsed.pathname !== "/"));
+    label = omittedCredentials ? parsed.origin : resolved.url;
+  } catch {
+    // Keep the generic label so a malformed override cannot print a secret.
+  }
+  const source = resolved.source === "public default" ? "public default" : "SEPOLIA_RPC_URL";
+  const credentialNote = omittedCredentials ? "; credentials omitted" : "";
+  return `Using Sepolia RPC ${label} (${source}${credentialNote}).`;
+}
+
 export class DeploymentValidationError extends Error {}
 function requireCheck(condition, message) {
   if (!condition) throw new DeploymentValidationError(message);

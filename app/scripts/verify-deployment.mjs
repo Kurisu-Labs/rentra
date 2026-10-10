@@ -2,7 +2,7 @@ import { readFile, writeFile, rename } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
-import { DeploymentValidationError, verifyCandidate } from "./deployment-validation.mjs";
+import { DeploymentValidationError, formatSepoliaRpcLog, resolveSepoliaRpcUrl, verifyCandidate } from "./deployment-validation.mjs";
 
 let promotionStarted = false;
 try {
@@ -15,7 +15,9 @@ try {
     else throw new DeploymentValidationError("Usage: verify-deployment.mjs [--candidate PATH] [--promote]");
   }
   const candidate = JSON.parse(await readFile(candidatePath, "utf8"));
-  const client = createPublicClient({ chain: sepolia, transport: http(process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com") });
+  const rpc = resolveSepoliaRpcUrl();
+  console.log(formatSepoliaRpcLog(rpc));
+  const client = createPublicClient({ chain: sepolia, transport: http(rpc.url) });
   const verified = await verifyCandidate(client, candidate);
   if (promote) {
     const clientVersion = await client.request({ method: "web3_clientVersion" });
