@@ -18,7 +18,10 @@ import {
   statusLabel,
 } from "@/lib/contracts";
 import { formatIDR, formatWhen, shortAddr, tupleAt } from "@/lib/format";
+import { expectRentalStatus } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { Countdown } from "@/components/countdown";
+import { ClaimRelease } from "@/components/claim-release";
 
 export default function MyRentalsPage() {
   const router = useRouter();
@@ -30,7 +33,7 @@ export default function MyRentalsPage() {
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "nextRentalId",
-    query: { enabled: configured },
+    query: { enabled: configured, refetchInterval: 15_000 },
   });
   const demo = useReadContract({
     chainId: chain.id,
@@ -55,7 +58,7 @@ export default function MyRentalsPage() {
       functionName: "rentals",
       args: [id],
     })),
-    query: { enabled: configured && ids.length > 0 },
+    query: { enabled: configured && ids.length > 0, refetchInterval: 15_000 },
   });
 
   const mine = ids.flatMap((id, index) => {
@@ -79,22 +82,16 @@ export default function MyRentalsPage() {
       functionName: "claimDefault",
       args: [id],
     });
-    await tx.send(addresses.escrow, data);
-  }
-
-  async function finalize(id: bigint) {
-    if (!addresses.escrow) return;
-    const data = encodeFunctionData({
-      abi: rentalEscrowAbi,
-      functionName: "finalizeClaim",
-      args: [id],
-    });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) => expectRentalStatus(probe, id, 7));
   }
 
   async function cancel(id: bigint) {
     if (!addresses.escrow) return;
-    await tx.send(addresses.escrow, encodeFunctionData({ abi: rentalEscrowAbi, functionName: "cancel", args: [id] }));
+    await tx.send(
+      addresses.escrow,
+      encodeFunctionData({ abi: rentalEscrowAbi, functionName: "cancel", args: [id] }),
+      (probe) => expectRentalStatus(probe, id, 8),
+    );
   }
 
   return (
@@ -174,7 +171,6 @@ export default function MyRentalsPage() {
               counterparty={isOwner ? renter : owner}
               pending={tx.pending || !tx.writable}
               onDefault={() => void tx.run(() => claimDefault(id))}
-              onFinalize={() => void tx.run(() => finalize(id))}
               onCancel={() => void tx.run(() => cancel(id))}
             />
           );
@@ -196,7 +192,6 @@ function RentalCard({
   counterparty,
   pending,
   onDefault,
-  onFinalize,
   onCancel,
 }: {
   id: bigint;
@@ -209,7 +204,6 @@ function RentalCard({
   counterparty: string;
   pending: boolean;
   onDefault: () => void;
-  onFinalize: () => void;
   onCancel: () => void;
 }) {
   const expires = useReadContract({
@@ -245,6 +239,7 @@ function RentalCard({
             </>
           )}
       </p>
+      {status === 0 && <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>}
       <div className="row" style={{ marginTop: 12 }}>
         {status === 0 && (
           <Link className="button" href={`/handover/${id}`}>
@@ -266,13 +261,9 @@ function RentalCard({
             Claim non-return
           </button>
         )}
-        {status === 2 && (
-          <button type="button" className="secondary" disabled={pending} onClick={onFinalize}>
-            Release uncontested deposit after deadline
-          </button>
-        )}
         {status === 0 && <button type="button" className="secondary" disabled={pending} onClick={onCancel}>Cancel booking & refund</button>}
       </div>
+      {status === 2 && <ClaimRelease rentalId={id} />}
     </article>
   );
 }

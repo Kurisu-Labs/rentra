@@ -4,7 +4,7 @@
 
 Rentra is a peer-to-peer rental escrow on Ethereum Sepolia (chain ID `11155111`).
 
-- `app/src/app/`: Next.js App Router pages and global CSS; `icon.svg` is the app icon.
+- `app/src/app/`: Next.js App Router pages and global CSS; `icon.png` is the app icon.
 - `app/src/components/`: shared React components and transaction hooks.
 - `app/src/lib/`: contract configuration, formatting, sample data, and signing helpers. `app/src/abi/` and `app/src/deployments/` hold contract integration data.
 - `contracts/src/`: Solidity escrow, rental NFT, reputation, and mock rupiah contracts; interfaces live in `interfaces/`.

@@ -6,6 +6,8 @@ import { encodeFunctionData, isAddress, zeroAddress } from "viem";
 import type { Hex } from "viem";
 import { addresses, chain, rentalEscrowAbi } from "@/lib/contracts";
 import { formatIDR, formatWhen, rpToWei, tupleAt } from "@/lib/format";
+import { expectRentalStatus } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { useRentraTx } from "@/components/use-tx";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { PhotoHash } from "@/components/photo-hash";
@@ -45,7 +47,37 @@ export function RentalResolution({ rentalId, owner, renter, status }: {
 
   async function send(functionName: string, args: readonly unknown[]) {
     if (!addresses.escrow) return;
-    await tx.send(addresses.escrow, encodeFunctionData({ abi: rentalEscrowAbi, functionName, args }));
+    await tx.send(
+      addresses.escrow,
+      encodeFunctionData({ abi: rentalEscrowAbi, functionName, args }),
+      (probe) => {
+        if (functionName === "acknowledgeReturn") return expectRentalStatus(probe, rentalId, 2);
+        if (functionName === "disputeReturn") return expectRentalStatus(probe, rentalId, 10);
+        if (functionName === "acceptSettlement" || functionName === "resolveClaim") {
+          return expectRentalStatus(probe, rentalId, 6);
+        }
+        if (functionName === "resolveReturn") return expectRentalStatus(probe, rentalId, returned ? 6 : 7);
+        if (functionName === "proposeMediator") {
+          return probe.read({ functionName: "mediations", args: [rentalId] }).then((row) => {
+            return String(tupleAt(row, 0)).toLowerCase() === mediatorInput.toLowerCase();
+          });
+        }
+        if (functionName === "acceptMediator") {
+          return probe.read({ functionName: "mediations", args: [rentalId] }).then((row) => {
+            return String(tupleAt(row, 1)).toLowerCase() === proposed.toLowerCase();
+          });
+        }
+        if (functionName === "proposeSettlement") {
+          return probe.read({ functionName: "settlementOffers", args: [rentalId] }).then((row) => {
+            return (
+              String(tupleAt(row, 0)).toLowerCase() === address?.toLowerCase() &&
+              tupleAt(row, 1) === rpToWei(amount)
+            );
+          });
+        }
+        return Promise.resolve(false);
+      },
+    );
   }
 
   function downloadReceipt() {
@@ -74,9 +106,9 @@ export function RentalResolution({ rentalId, owner, renter, status }: {
       </p>
       {readFailed && <p className="notice warn" role="alert">Resolution details could not be loaded. Please retry.</p>}
       <p>Mediator: {mediator === zeroAddress ? "None agreed — bilateral settlement only" : mediator}</p>
+      {status === 0 && <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>}
       {status === 0 && mediator === zeroAddress && (
         <>
-          <p className="field-help">Agree on a trusted, available mediator before pickup. They can allocate this rental’s funds and rule non-return after the grace period. No mediation service is provided by Rentra. Cancel before pickup if you cannot agree.</p>
           {proposed !== zeroAddress && <p>Proposed mediator: {proposed}</p>}
           {isOwner && <>
             <label htmlFor="mediator-address">Mediator wallet address (zero address withdraws a pending proposal)</label>
@@ -86,7 +118,6 @@ export function RentalResolution({ rentalId, owner, renter, status }: {
           {isRenter && proposed !== zeroAddress && <button type="button" disabled={disabled} onClick={() => void tx.run(() => send("acceptMediator", [rentalId, proposed]))}>Accept this mediator</button>}
         </>
       )}
-      {status === 2 && claimEnd !== undefined && <p>Claim window closes: <strong>{formatWhen(claimEnd)}</strong> (real time). After this deadline, an uncontested deposit can be released by a transaction.</p>}
       {disputed && responseEnd !== undefined && <p>Initial response deadline: <strong>{formatWhen(responseEnd)}</strong> (real time). Missing this deadline does not settle the claim. Mutual settlement and mediator resolution remain available.</p>}
       {pendingReturn && isOwner && <>
         <button type="button" disabled={disabled} onClick={() => void tx.run(() => send("acknowledgeReturn", [rentalId]))}>Acknowledge physical return</button>

@@ -4,8 +4,8 @@
   --muted: #606c65;
   --line: #dce2d8;
   --card: #fffefa;
-  --teal: #245c48;
-  --teal-dark: #164332;
+  --teal: #0a8b86;
+  --teal-dark: #06635f;
   --clay: #a3472f;
   --ok: #286349;
   --warn: #865818;
@@ -90,21 +90,13 @@ h3 {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
   text-decoration: none;
+  flex-shrink: 0;
 }
-.brand strong {
-  font-size: 1.65rem;
-  letter-spacing: -0.07em;
-  line-height: 1;
-}
-.brand-dot {
-  color: var(--teal);
-}
-.brand-mark {
-  display: grid;
-  place-items: center;
-  color: var(--teal);
+.brand-logo {
+  display: block;
+  height: 58px;
+  width: auto;
 }
 .nav,
 .header-actions {
@@ -450,7 +442,7 @@ button,
 .button {
   appearance: none;
   border: 1px solid transparent;
-  background: var(--teal);
+  background: #087570;
   color: white;
   border-radius: 9px;
   min-height: 44px;
@@ -583,6 +575,38 @@ textarea {
   border-color: #ead1c5;
   background: #fff4ed;
   color: #834a33;
+}
+.notice.claim-window {
+  color: var(--ink);
+}
+.notice.claim-window.ready {
+  border-color: #b7d7c4;
+  background: #e7f3ea;
+}
+.claim-window .countdown {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.claim-window button {
+  margin-top: 8px;
+}
+.claim-window .warn-inline {
+  color: #834a33;
+  margin-bottom: 8px;
+}
+button.ready {
+  box-shadow: 0 0 0 3px #9dccb4;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .split {
   display: grid;
@@ -856,8 +880,8 @@ summary {
   .list-link {
     font-size: 0.8rem;
   }
-  .brand strong {
-    font-size: 1.45rem;
+  .brand-logo {
+    height: 46px;
   }
   .card,
   .owner-banner {

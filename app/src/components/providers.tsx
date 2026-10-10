@@ -30,7 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           locale="en-US"
           modalSize="compact"
           theme={lightTheme({
-            accentColor: "#245c48",
+            accentColor: "#087570",
             accentColorForeground: "#ffffff",
             borderRadius: "medium",
             fontStack: "system",

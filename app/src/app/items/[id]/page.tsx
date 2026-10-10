@@ -29,6 +29,8 @@ import {
 } from "@/lib/format";
 import { findSample } from "@/lib/samples";
 import { idrDomain, permitTypes, splitSignature } from "@/lib/sign";
+import { expectIncreased } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 
 export default function ItemPage() {
   const params = useParams<{ id: string }>();
@@ -89,6 +91,7 @@ export default function ItemPage() {
             <button className="full-width" type="button" disabled>
               Booking unavailable
             </button>
+            <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>
             <p className="small muted" style={{ marginTop: 16 }}>
               After return, the remaining deposit is released after the claim window, subject to any
               fees or damage claims.
@@ -228,9 +231,16 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   const uncovered = typeof value === "bigint" && deposit !== undefined ? value - deposit : undefined;
 
   async function faucet() {
-    if (!addresses.idr) return;
+    if (!addresses.idr || !address) return;
     const data = encodeFunctionData({ abi: mockIdrAbi, functionName: "faucet" });
-    await tx.send(addresses.idr, data);
+    const balanceRead = {
+      address: addresses.idr,
+      abi: mockIdrAbi,
+      functionName: "balanceOf",
+      args: [address],
+    };
+    const before = await tx.read(balanceRead);
+    await tx.send(addresses.idr, data, (probe) => expectIncreased(probe, balanceRead, before));
   }
 
   async function book() {
@@ -270,7 +280,10 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
       functionName: "bookWithPermit",
       args: [tokenId, startUnix, endUnix, total, deadline, v, r, s],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, async (probe) => {
+      const locked = await probe.read({ functionName: "isLocked", args: [tokenId] });
+      return locked === true;
+    });
   }
 
   const total = rent !== undefined && deposit !== undefined ? rent + deposit : undefined;
@@ -382,8 +395,9 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
           <p className="small muted">
             Rental time rounds up to full days. An acknowledged return starts a 24-hour real-time
             claim window, including in demo mode. Unresolved disputes can keep funds locked
-            indefinitely. A mediator can be agreed before pickup; no mediation service is provided.
+            indefinitely.
           </p>
+          <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>
           <label><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /> I accept the listed replacement value, rental charges, deposit, and return/dispute rules.</label>
           {!isConnected ? (
             <WalletConnectButton label="Connect MetaMask to book" className="full-width" />

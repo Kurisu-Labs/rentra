@@ -8,10 +8,13 @@ import { encodeFunctionData, isAddress, isHex, zeroAddress } from "viem";
 import type { Hex } from "viem";
 import { PhotoHash } from "@/components/photo-hash";
 import { QrCode } from "@/components/qr-code";
+import { ClaimRelease } from "@/components/claim-release";
 import { RentalResolution } from "@/components/rental-resolution";
 import { useRentraTx } from "@/components/use-tx";
-import { addresses, chain, configured, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
+import { addresses, chain, configured, mockIdrAbi, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
 import { errText, formatIDR, formatWhen, rpToWei, shortAddr, tupleAt } from "@/lib/format";
+import { expectRentalStatus } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { escrowDomain, handoverTypes, returnTypes } from "@/lib/sign";
 
 type Payload = {
@@ -39,7 +42,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
     abi: rentalEscrowAbi,
     functionName: "rentals",
     args: [rentalId],
-    query: { enabled: configured },
+    query: { enabled: configured, refetchInterval: 15_000 },
   });
   const owner = String(tupleAt(rental.data, 1) ?? "");
   const renter = String(tupleAt(rental.data, 2) ?? "");
@@ -145,7 +148,9 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
       mode === "handover"
         ? encodeFunctionData({ abi: rentalEscrowAbi, functionName: "handover", args })
         : encodeFunctionData({ abi: rentalEscrowAbi, functionName: "confirmReturn", args });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) =>
+      expectRentalStatus(probe, rentalId, mode === "handover" ? 1 : unilateral ? 9 : 2),
+    );
   }
 
   const title = mode === "handover" ? "Ready for the handover?" : "Wrap up your rental.";
@@ -172,6 +177,9 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
             : "Record the item’s condition. The 24-hour real-time claim window starts after an acknowledged return. An unsigned request needs acknowledgement or resolution."}
         </p>
       </div>
+      {mode === "handover" && Boolean(rental.data) && status === 0 && (
+        <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>
+      )}
       <div className="split">
         <section className="card">
           <h2>1. Record the condition</h2>
@@ -322,6 +330,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
           )}
         </aside>
       </div>
+      {mode === "return" && status === 2 && <ClaimRelease rentalId={rentalId} />}
       {tx.writable && <RentalResolution rentalId={rentalId} owner={owner} renter={renter} status={status} />}
     </div>
   );
@@ -339,6 +348,7 @@ function ClaimBox({
   status: number;
 }) {
   const tx = useRentraTx();
+  const { address } = useAccount();
   const [amount, setAmount] = useState("100000");
   const [evidence, setEvidence] = useState<Hex | "">("");
   const [counter, setCounter] = useState("0");
@@ -377,13 +387,22 @@ function ClaimBox({
       functionName: "approve",
       args: [addresses.escrow, bond],
     });
-    await tx.send(addresses.idr, approve);
+    await tx.send(addresses.idr, approve, async (probe) => {
+      if (!address || !addresses.escrow) return false;
+      const allowance = await probe.read({
+        address: addresses.idr,
+        abi: mockIdrAbi,
+        functionName: "allowance",
+        args: [address, addresses.escrow],
+      });
+      return typeof allowance === "bigint" && allowance >= bond;
+    });
     const data = encodeFunctionData({
       abi: rentalEscrowAbi,
       functionName: "fileDamageClaim",
       args: [rentalId, wei, evidence],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) => expectRentalStatus(probe, rentalId, 4));
   }
 
   async function respond(accept: boolean) {
@@ -395,7 +414,11 @@ function ClaimBox({
       functionName: "respondClaim",
       args: [rentalId, accept, accept ? 0n : counterWei],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, async (probe) => {
+      if (accept) return expectRentalStatus(probe, rentalId, 6);
+      const claim = await probe.read({ functionName: "claims", args: [rentalId] });
+      return tupleAt(claim, 4) === true;
+    });
   }
 
   async function acceptCounter() {
@@ -405,7 +428,7 @@ function ClaimBox({
       functionName: "acceptCounter",
       args: [rentalId],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) => expectRentalStatus(probe, rentalId, 6));
   }
 
   async function escalate() {
@@ -415,7 +438,7 @@ function ClaimBox({
       functionName: "escalate",
       args: [rentalId],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) => expectRentalStatus(probe, rentalId, 5));
   }
 
   return (
