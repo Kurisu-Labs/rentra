@@ -1,6 +1,13 @@
 # Rentra v2 — runbook deployment Ethereum Sepolia
 
-Jalankan sendiri di terminal lokal. Runbook ini tidak membroadcast transaksi saat dibaca. Alamat yang tersimpan di repo masih v1; tidak ada migrasi dana atau reputasi otomatis. Jangan merge/publish frontend transaksional sebelum deployment v2, verifikasi, dan uji wallet selesai.
+**Current status:** instance v2 sudah dideploy dan diverifikasi; lihat [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). Alamat committed sekarang v2. Langkah deployment di bawah akan membuat instance baru dan hanya dijalankan bila itu memang diinginkan. Tidak ada migrasi dana atau reputasi v1. Uji rental multi-wallet dan publikasi frontend masih terpisah.
+
+Untuk memeriksa instance yang sudah committed tanpa transaksi atau perubahan file:
+
+```bash
+cd /home/rakhargo/projects/rentra/app
+npm run verify:deployment -- --candidate src/deployments/sepolia.json
+```
 
 ## 1. Persiapan
 

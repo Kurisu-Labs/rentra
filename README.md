@@ -6,11 +6,11 @@ Rentra is an ETHJakarta 2026 hackathon project (RWA track). It is a peer-to-peer
 
 Full product notes, in Indonesian, are in [docs/PLAN.md](docs/PLAN.md).
 
-## Safety v2: local code versus deployed contracts
+## Safety v2: live Sepolia instance
 
-The local source implements protocol **v2**. The committed Sepolia addresses below are the historical **v1** deployment and have **not** been replaced or upgraded by these changes. The updated app is read-only against an unrecognized version or mismatched contract references; it checks again before requesting signatures or transactions. A new deployment of all four contracts is required to use v2. Existing v1 rentals and reputation remain on their original contracts; no migration is implemented.
+Protocol **v2 is deployed on Ethereum Sepolia** and is the default in both committed deployment manifests. All four contracts have exact creation/runtime source matches on Sourcify, and admin, cross-contract, bytecode, and signing-domain checks passed. See [docs/DEPLOYMENT-V2.md](docs/DEPLOYMENT-V2.md) for receipts and scope. A funded multi-wallet rental acceptance test remains pending.
 
-See [docs/RENTAL-SAFETY.md](docs/RENTAL-SAFETY.md) for the trust model and limitations. The following behavior describes **v2 source**, not the historical deployment.
+The app blocks signatures and transactions against unrecognized versions or mismatched contract references. Existing v1 rentals, funds, and reputation remain on their original contracts; no migration is implemented. [docs/RENTAL-SAFETY.md](docs/RENTAL-SAFETY.md) describes the v2 rules and limitations.
 
 ## Why this is onchain
 
@@ -115,6 +115,19 @@ For a credential-free local integration test, start `anvil --chain-id 11155111` 
 
 Connecting a wallet does not request a login signature. Booking and handover/return request the signatures required by the rental contracts. The MetaMask icon is distributed with its RainbowKit MIT license in `app/public/licenses/rainbowkit.txt`.
 
+## Current v2 Ethereum Sepolia Deployment
+
+Chain ID: `11155111`. Mode: real time. No listings or owner approvals are pre-seeded.
+
+| Contract | Address | Sourcify source verification |
+| --- | --- | --- |
+| MockIDR | [`0x5f1540ad73433d80e510efa8dac04d2acbfa8f24`](https://sepolia.etherscan.io/address/0x5f1540ad73433d80e510efa8dac04d2acbfa8f24) | [Exact match](https://repo.sourcify.dev/11155111/0x5f1540aD73433d80e510eFA8DAC04d2acbfA8f24) |
+| RentalItem | [`0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525`](https://sepolia.etherscan.io/address/0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525) | [Exact match](https://repo.sourcify.dev/11155111/0x29A2Ded83F440fC1d16d0f1617E8c2FB7D2C8525) |
+| Reputation | [`0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a`](https://sepolia.etherscan.io/address/0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a) | [Exact match](https://repo.sourcify.dev/11155111/0x6356F9B9e5dD5A13E2b1fDd2680f19d5ef5f1c1a) |
+| RentalEscrow | [`0x9be48b39d3fa6cbf929141a247d9302495d17a73`](https://sepolia.etherscan.io/address/0x9be48b39d3fa6cbf929141a247d9302495d17a73) | [Exact match](https://repo.sourcify.dev/11155111/0x9BE48B39d3fa6cbF929141A247d9302495D17A73) |
+
+Both `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json` use this verified instance. The private deployment signer and credential-bearing RPC are not part of the frontend configuration. [Deployment evidence](docs/DEPLOYMENT-V2.md) includes all six receipts.
+
 ## Historical v1 Ethereum Sepolia Deployment
 
 Chain ID: `11155111`. Deployer: [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](https://sepolia.etherscan.io/address/0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf).
@@ -126,9 +139,9 @@ Chain ID: `11155111`. Deployer: [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](h
 | Reputation | [`0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7`](https://sepolia.etherscan.io/address/0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7) |
 | RentalEscrow | [`0x888d7200C2fC016a8Adde7328092B40BB14C5cab`](https://sepolia.etherscan.io/address/0x888d7200C2fC016a8Adde7328092B40BB14C5cab) |
 
-The previous deployment notes reported bytecode and integration verification with demo mode enabled. These live checks were not repeated for v2. The historical deployment is recorded in `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json`.
+These are historical v1 addresses, retained here for reference. They remain unchanged onchain. The committed manifests now point to the separate v2 instance above; no v1 funds or reputation were moved.
 
-The app reads this deployment by default but disables v2 signatures and transactions against it. `NEXT_PUBLIC_*_ADDRESS` overrides must identify one consistent v2 deployment, including both contracts' escrow references.
+Do not override the v2 app with these v1 addresses. `NEXT_PUBLIC_*_ADDRESS` overrides must identify one consistent v2 deployment, including both contracts' escrow references.
 
 ## Deploy a New Instance to Ethereum Sepolia
 
@@ -136,7 +149,7 @@ Chain id `11155111`. The script does not broadcast unless you pass `--broadcast`
 
 Follow the copy-paste commands in [docs/DEPLOY-V2.md](docs/DEPLOY-V2.md): configure a local encrypted keystore, simulate with the public sender address, broadcast with `--account` and `--sender`, and complete source verification. `foundry.toml` uses the Etherscan V2 Sepolia endpoint. Never put a private key in a CLI argument or commit an API-key-bearing RPC URL.
 
-Both dry runs and broadcasts write only `contracts/deployments/sepolia.candidate.json`. From `app/`, `npm run verify:deployment` checks live bytecode, chain, protocol version, admins, contract links, clock mode, and token metadata at one block. It leaves the manifests unchanged. After inspecting receipts and source verification, `npm run verify:deployment -- --promote` updates both manifests with the same verified snapshot. Simulated/mismatched candidates and local Anvil promotion are rejected. Historical v1 files remain unchanged until a successful explicit promotion.
+Both dry runs and broadcasts write only `contracts/deployments/sepolia.candidate.json`. From `app/`, `npm run verify:deployment` checks live bytecode, chain, protocol version, admins, contract links, clock mode, and token metadata at one block. It leaves the manifests unchanged. After inspecting receipts and source verification, `npm run verify:deployment -- --promote` updates both manifests with the same verified snapshot. Simulated/mismatched candidates and local Anvil promotion are rejected. The current files contain the successfully promoted v2 instance; dry runs for any future instance cannot replace them.
 
 ## Vercel
 

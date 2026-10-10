@@ -82,3 +82,7 @@ The user requested descriptive branch categories: `feature/`, `fix/`, `design/`,
 - The old dry-run overwrite and the new rejection/preservation behavior were exercised in isolated copies. Historical manifests remain unchanged.
 - Deployment verifier and runbook received an independent read-only review with no confirmed P1/P2 findings.
 - User will execute docs/DEPLOY-V2.md locally. No real deployer signer or public broadcast is part of this delivery.
+
+## Subsequent live deployment
+
+The user later authorized agent deployment using the signer stored locally. A new v2 instance was deployed on Ethereum Sepolia in six confirmed transactions, with real-time mode. All four source sets obtained Sourcify exact matches, runtime/domain checks passed, and both manifests were promoted. Public receipts and validation scope are in docs/DEPLOYMENT-V2.md. V1 funds/history were not migrated; funded multi-wallet rental E2E and hosted frontend publication remain separate.

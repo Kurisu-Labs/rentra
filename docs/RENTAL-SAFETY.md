@@ -1,6 +1,6 @@
 # Rental safety v2
 
-This is the implementation scope authorized on 10 October 2026. It changes local contracts and the app; it does not upgrade or replace the existing Sepolia deployment.
+This is the implementation scope authorized on 10 October 2026. A new v2 Sepolia instance has since been deployed; see [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). Existing v1 contracts and funds are not upgraded or migrated.
 
 ## Rules
 

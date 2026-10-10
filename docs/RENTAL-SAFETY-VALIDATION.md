@@ -1,6 +1,6 @@
 # Rental safety v2 — local validation
 
-Validated locally on 10 October 2026 on branch `feature/rental-safety-v2`, based on `498755a`. Delivery is split into focused Git commits; remote CI evidence is reported on the pull request separately. No Sepolia broadcast or migration was performed.
+Validated locally on 10 October 2026 on branch `feature/rental-safety-v2`, based on `498755a`. Delivery is split into focused Git commits; remote CI evidence is reported on the pull request separately. This report records the pre-deployment local checks. A later Sepolia deployment is documented separately in [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md); no migration was performed.
 
 ## Results
 
@@ -22,7 +22,7 @@ Validated locally on 10 October 2026 on branch `feature/rental-safety-v2`, based
 | Independent review | One stale-counter defect found, reproduced, and fixed; reviewer reran that regression and the zero-late-fee regression and reported no outstanding confirmed P1/P2 defects |
 | `git diff --check` | Passed |
 
-Local tools: Foundry **1.5.1**, Solidity **0.8.28**, Node.js **22.23.3**. CI remains pinned to Foundry **v1.8.5**; these results describe local verification, with remote results tracked on the pull request. No new package dependencies or lockfile changes were needed. Vendored Solidity dependencies and both historical deployment JSON files remain unchanged.
+Local tools: Foundry **1.5.1**, Solidity **0.8.28**, Node.js **22.23.3**. CI remains pinned to Foundry **v1.8.5**; these results describe local verification, with remote results tracked on the pull request. No new package dependencies or lockfile changes were needed. Vendored Solidity dependencies remain unchanged. Deployment JSON files were kept unchanged throughout the local checks and later promoted to the verified v2 instance documented separately.
 
 ## Regression evidence
 
@@ -44,10 +44,10 @@ Screenshots show **local test accounts and local Anvil state**, not a Sepolia de
 
 ## Remaining rollout and trust requirements
 
-The committed addresses still identify v1. The v2 app intentionally disables transactions/signatures until all four new contracts are connected consistently. Existing rental funds and history remain on their original contracts; no automatic migration exists.
+At the time of the local checks below, committed addresses still identified v1. The manifests now identify a separately deployed, verified v2 instance. The app continues to reject legacy/mismatched configurations. Existing v1 funds and history remain on their original contracts.
 
-Before live use, deploy a new instance, verify source and integration references, review owner approvals, arrange an actually available mutually accepted mediator, and run a funded multi-wallet Sepolia acceptance test. No real funds, insurance, guarantor capital, external evidence storage, notification delivery, keeper, or arbitration service was provisioned.
+The later deployment completed source and integration verification. Before real rental use, review owner approvals, arrange an actually available mutually accepted mediator, and run a funded multi-wallet Sepolia acceptance test. No real funds, insurance, guarantor capital, external evidence storage, notification delivery, keeper, or arbitration service was provisioned.
 
-The user selected self-operated deployment. [DEPLOY-V2.md](DEPLOY-V2.md) contains the encrypted-keystore, simulation, broadcast, verification, manifest-promotion, and acceptance-test steps. The agent did not use a real deployer signer or broadcast to Sepolia.
+The initial handoff selected self-operated deployment. The user subsequently authorized agent deployment using a local signer; that later deployment and read-only live verification are recorded in [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). [DEPLOY-V2.md](DEPLOY-V2.md) remains the runbook for future instances.
 
 Physical exchange and photo authenticity remain offchain facts. Approval does not prove unique people. Contested funds can remain locked indefinitely without agreement or a responsive mediator. These are explicit product limitations, not resolved by the passing tests or this code review.
