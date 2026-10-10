@@ -2,9 +2,11 @@
 
 Current public preview: [Open Rentra](https://rentra-ke155ds3k-rakhargos-projects.vercel.app).
 
+This preview and the checks below target the **superseded v2 instance** (`MockIDR` `0x5f1540ad73433d80e510efa8dac04d2acbfa8f24`, `RentalItem` `0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525`, `Reputation` `0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a`, `RentalEscrow` `0x9be48b39d3fa6cbf929141a247d9302495d17a73`, admin `0xadf00a2476c77163B607af6E55A6a90185ae33f6`). That instance was replaced because its admin key was unavailable. The committed manifests now point at the team-admin instance in [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). QA recorded here used identical bytecode and source. Listings and rentals on the superseded instance are not visible in an app that reads the current manifests.
+
 The current deployment is `dpl_A9zBGwf9U9pJvXcN2pcinF3Vivsn`, built from `de8e4915ba8dfee8d2209c48f6d5920f05c2b3a4` with Node 22. It is READY with the Preview target. It includes the [dependency security patch and npm 10 compatibility fix](DEPENDENCY-VALIDATION.md). [CI run 38033035515](https://github.com/Kurisu-Labs/rentra/actions/runs/38033035515) passed both jobs, including the new high/critical audit gate.
 
-Current hosted checks passed: four public routes and 18 referenced JavaScript assets returned HTTP 200, bundles contain all four v2 addresses and the public RPC, the v2 guard completed, and rental #5 displayed Returned, Rp500,000 held, and the matching 11 October claim deadline. Navigation and the wallet modal worked. All four main pages had no measured horizontal overflow at 375/768/1440 CSS pixels; the fully loaded E2E catalog also passed those widths. No application-origin console errors were observed.
+Current hosted checks passed: four public routes and 18 referenced JavaScript assets returned HTTP 200, bundles contain all four superseded v2 addresses and the public RPC, the v2 guard completed, and rental #5 displayed Returned, Rp500,000 held, and the matching 11 October claim deadline. Navigation and the wallet modal worked. All four main pages had no measured horizontal overflow at 375/768/1440 CSS pixels; the fully loaded E2E catalog also passed those widths. No application-origin console errors were observed.
 
 The return page's before/after screenshots have identical dimensions and zero pixels with any RGB channel difference above 20. This is a matched check of that page; the broader visual-baseline, full accessibility, Core Web Vitals, and wallet-extension limitations below still apply.
 
@@ -14,7 +16,7 @@ Current evidence: [HTTP/bundle checks](evidence/preview-v2-patched/http-verifica
 
 The initial preview remains at [the original URL](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app). The validation below records that earlier build and its original evidence; it is superseded by the patched deployment above.
 
-This deployment was built from `6e92f7ceaa0c2f53f6c5c5f4922a3854ad358cc4` with Node.js 22, `npm ci`, and `npm run build`. Vercel reports deployment `dpl_AchuXJG4t9ZeGCZeYokztVQwj6qr` as **READY**, with the Preview target (`target: null` in its API). It uses the four committed v2 contract addresses and the public Sepolia RPC. No project environment variables are configured.
+This deployment was built from `6e92f7ceaa0c2f53f6c5c5f4922a3854ad358cc4` with Node.js 22, `npm ci`, and `npm run build`. Vercel reports deployment `dpl_AchuXJG4t9ZeGCZeYokztVQwj6qr` as **READY**, with the Preview target (`target: null` in its API). It uses the four v2 contract addresses committed at that build — now the superseded instance above — and the public Sepolia RPC. No project environment variables are configured.
 
 The owner explicitly authorized public access for the newly created Vercel project `rentra`. Anyone with a deployment URL can open this testnet frontend without a Vercel login. MetaMask still controls wallet connection, signatures, and transactions.
 

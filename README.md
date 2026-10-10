@@ -8,7 +8,7 @@ Full product notes, in Indonesian, are in [docs/PLAN.md](docs/PLAN.md).
 
 ## Safety v2: live Sepolia instance
 
-Protocol **v2 is deployed on Ethereum Sepolia** and is the default in both committed deployment manifests. All four contracts have exact creation/runtime source matches on Sourcify, and admin, cross-contract, bytecode, and signing-domain checks passed. See [docs/DEPLOYMENT-V2.md](docs/DEPLOYMENT-V2.md) for receipts and scope. Funded Sepolia contract checks now cover cancellation, mediation, damage claims, and bilateral settlement; [full acceptance](docs/SEPOLIA-ACCEPTANCE.md) still requires the clean-return claim deadline and an actual MetaMask transaction journey. The [public frontend preview](https://rentra-ke155ds3k-rakhargos-projects.vercel.app) now uses this deployment; see [preview checks and limitations](docs/PREVIEW-V2.md).
+Protocol **v2 is deployed on Ethereum Sepolia** and is the default in both committed deployment manifests. The current instance is administered by the team wallet `0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`. All four contracts have exact creation/runtime source matches on Sourcify, and admin, cross-contract, bytecode, and signing-domain checks passed. See [docs/DEPLOYMENT-V2.md](docs/DEPLOYMENT-V2.md) for receipts and scope. Funded Sepolia contract checks on the superseded v2 instance cover cancellation, mediation, damage claims, and bilateral settlement; those listings and rentals are not visible in the app. [Full acceptance](docs/SEPOLIA-ACCEPTANCE.md) on that instance still requires the clean-return claim deadline and an actual MetaMask transaction journey. The [public frontend preview](https://rentra-ke155ds3k-rakhargos-projects.vercel.app) was built against the superseded instance; see [preview checks and limitations](docs/PREVIEW-V2.md).
 
 The app blocks signatures and transactions against unrecognized versions or mismatched contract references. Existing v1 rentals, funds, and reputation remain on their original contracts; no migration is implemented. [docs/RENTAL-SAFETY.md](docs/RENTAL-SAFETY.md) describes the v2 rules and limitations.
 
@@ -119,7 +119,22 @@ Connecting a wallet does not request a login signature. Booking and handover/ret
 
 ## Current v2 Ethereum Sepolia Deployment
 
-Chain ID: `11155111`. Mode: real time. No listings or owner approvals were seeded by deployment. A subsequent, explicitly labeled E2E fixture and five test rentals are documented in [SEPOLIA-ACCEPTANCE.md](docs/SEPOLIA-ACCEPTANCE.md).
+Chain ID: `11155111`. Mode: real time. Admin (Reputation, RentalItem, and RentalEscrow): [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](https://sepolia.etherscan.io/address/0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf). Deployment did not seed listings. After promotion, that admin approved test owner [`0xc7d19399C184ee28D425ce3cf8B1D92DACFCd4AE`](https://sepolia.etherscan.io/address/0xc7d19399C184ee28D425ce3cf8B1D92DACFCd4AE) in [`setOwnerApproval`](https://sepolia.etherscan.io/tx/0x1ca1ef5c2181efbee599e248ce44f2a8baf219f60cb85ce1af6844d98d82eb3d).
+
+| Contract | Address | Sourcify source verification |
+| --- | --- | --- |
+| MockIDR | [`0x1935B583074E1e53284114334753067Fc732ebB6`](https://sepolia.etherscan.io/address/0x1935B583074E1e53284114334753067Fc732ebB6) | [Exact match](https://repo.sourcify.dev/11155111/0x1935B583074E1e53284114334753067Fc732ebB6) |
+| RentalItem | [`0x5493216BedfE2FCBd2ec21f2702B7a6d3145Fc25`](https://sepolia.etherscan.io/address/0x5493216BedfE2FCBd2ec21f2702B7a6d3145Fc25) | [Exact match](https://repo.sourcify.dev/11155111/0x5493216BedfE2FCBd2ec21f2702B7a6d3145Fc25) |
+| Reputation | [`0x109982a2808784eB554F507172057AB0BbBCb737`](https://sepolia.etherscan.io/address/0x109982a2808784eB554F507172057AB0BbBCb737) | [Exact match](https://repo.sourcify.dev/11155111/0x109982a2808784eB554F507172057AB0BbBCb737) |
+| RentalEscrow | [`0x09869C49eA9cC3477b14d9CEcc212Df43D0949f2`](https://sepolia.etherscan.io/address/0x09869C49eA9cC3477b14d9CEcc212Df43D0949f2) | [Exact match](https://repo.sourcify.dev/11155111/0x09869C49eA9cC3477b14d9CEcc212Df43D0949f2) |
+
+Both `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json` use this verified instance, promoted at block `11884128`. The private deployment signer and credential-bearing RPC are not part of the frontend configuration. [Deployment evidence](docs/DEPLOYMENT-V2.md) includes the creation, link, and owner-approval receipts.
+
+QA acceptance results were recorded on the superseded v2 instance below. That instance ran identical bytecode and source. Its listings and rentals are not visible in the app, which reads this instance.
+
+## Superseded v2 instance
+
+Historical protocol v2 deployment on chain `11155111`, replaced on 10 October 2026 because its admin key was unavailable. Admin: [`0xadf00a2476c77163B607af6E55A6a90185ae33f6`](https://sepolia.etherscan.io/address/0xadf00a2476c77163B607af6E55A6a90185ae33f6). The contracts remain onchain and unchanged. The app no longer reads them.
 
 | Contract | Address | Sourcify source verification |
 | --- | --- | --- |
@@ -128,7 +143,7 @@ Chain ID: `11155111`. Mode: real time. No listings or owner approvals were seede
 | Reputation | [`0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a`](https://sepolia.etherscan.io/address/0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a) | [Exact match](https://repo.sourcify.dev/11155111/0x6356F9B9e5dD5A13E2b1fDd2680f19d5ef5f1c1a) |
 | RentalEscrow | [`0x9be48b39d3fa6cbf929141a247d9302495d17a73`](https://sepolia.etherscan.io/address/0x9be48b39d3fa6cbf929141a247d9302495d17a73) | [Exact match](https://repo.sourcify.dev/11155111/0x9BE48B39d3fa6cbF929141A247d9302495D17A73) |
 
-Both `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json` use this verified instance. The private deployment signer and credential-bearing RPC are not part of the frontend configuration. [Deployment evidence](docs/DEPLOYMENT-V2.md) includes all six receipts.
+Bytecode and source match the current instance. State does not. The funded checks in [SEPOLIA-ACCEPTANCE.md](docs/SEPOLIA-ACCEPTANCE.md), including the labeled E2E fixture and five test rentals, and the hosted preview checks in [PREVIEW-V2.md](docs/PREVIEW-V2.md), were run against this instance. Those listings and rentals are not visible in the app.
 
 ## Historical v1 Ethereum Sepolia Deployment
 
@@ -141,7 +156,7 @@ Chain ID: `11155111`. Deployer: [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](h
 | Reputation | [`0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7`](https://sepolia.etherscan.io/address/0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7) |
 | RentalEscrow | [`0x888d7200C2fC016a8Adde7328092B40BB14C5cab`](https://sepolia.etherscan.io/address/0x888d7200C2fC016a8Adde7328092B40BB14C5cab) |
 
-These are historical v1 addresses, retained here for reference. They remain unchanged onchain. The committed manifests now point to the separate v2 instance above; no v1 funds or reputation were moved.
+These are historical v1 addresses, retained here for reference. They remain unchanged onchain. The committed manifests now point to the current v2 instance above; no v1 funds or reputation were moved.
 
 Do not override the v2 app with these v1 addresses. `NEXT_PUBLIC_*_ADDRESS` overrides must identify one consistent v2 deployment, including both contracts' escrow references.
 
