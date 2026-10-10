@@ -52,6 +52,8 @@ npm test
 npm run verify:deployment -- --candidate src/deployments/sepolia.json
 ```
 
-The current run passed 44 contract tests (including 256 fuzz cases), seven Node checks, and live deployment verification of the superseded instance at block `11882665`. The hosted Vercel build uses Node 22. No contract changes or manifest promotion were needed for the preview. The committed manifests have since moved to the team-admin instance; this preview was not rebuilt against it.
+`verify:deployment` reads `SEPOLIA_RPC_URL` when it is set and otherwise uses `https://ethereum-sepolia-rpc.publicnode.com`. No RPC API key is required. The command logs the endpoint it uses and still checks bytecode, chain, protocol version, admins, contract links, clock mode, and token metadata.
+
+The current run passed 44 contract tests (including 256 fuzz cases), seven Node checks, and live deployment verification at block `11882665`. The hosted Vercel build uses Node 22. No contract changes or manifest promotion were needed for the preview.
 
 The subsequent [funded Sepolia contract checks](SEPOLIA-ACCEPTANCE.md) confirmed 31 transactions and 33 immediate assertions. Browser reads also checked the live fixture, returned rental #5, and a matching downloaded evidence receipt. Clean-return finalization remains pending until 11 October 2026 at 13:33:48 WIB; extension signing is a separate acceptance check.
