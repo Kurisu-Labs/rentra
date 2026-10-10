@@ -1,6 +1,8 @@
 # Rentra v2 funded Sepolia acceptance
 
-On 10 October 2026, **31 transactions were confirmed and 33 immediate checks passed** against the deployed v2 contracts. Public RPC reads independently checked the final state at block `11882766`. One clean return remains in its required 24-hour real-time claim window; full acceptance is still pending.
+These results were recorded on the **superseded v2 instance** (escrow [`0x9be48b39d3fa6cbf929141a247d9302495d17a73`](https://sepolia.etherscan.io/address/0x9be48b39d3fa6cbf929141a247d9302495d17a73), admin [`0xadf00a2476c77163B607af6E55A6a90185ae33f6`](https://sepolia.etherscan.io/address/0xadf00a2476c77163B607af6E55A6a90185ae33f6)). That instance was replaced because its admin key was unavailable. The checks used the same bytecode and source as the current team-admin instance in [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). Listings and rentals on this superseded instance are not visible in the app, which reads the current manifests.
+
+On 10 October 2026, **31 transactions were confirmed and 33 immediate checks passed** against that superseded deployment. Public RPC reads independently checked the final state at block `11882766`. One clean return remains in its required 24-hour real-time claim window; full acceptance is still pending.
 
 This was funded contract integration using three distinct test addresses controlled by one operator. Handover, return, and permit signatures used the frontend's typed-data definitions and were signed locally. The hosted browser was checked separately without a wallet extension. This is not a completed MetaMask extension transaction journey, proof of three independent people, or a physical rental. Evidence hashes commit to a synthetic test string, not genuine photos.
 
@@ -46,6 +48,7 @@ Before sending, re-read the rental status and claim deadline. Any account may ca
 
 ```sh
 RPC=https://ethereum-sepolia-rpc.publicnode.com
+# Superseded v2 escrow. Rental #5 exists only on this instance, not on the current app manifests.
 ESCROW=0x9be48b39d3fa6cbf929141a247d9302495d17a73
 cast chain-id --rpc-url "$RPC"
 # Expected chain ID: 11155111.
@@ -67,4 +70,4 @@ The [initial public preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.
 
 PR #5 remains draft. Complete the real claim-window finalization, an actual MetaMask connection/sign/send journey, and the dependency advisory follow-up documented in the preview report before production acceptance.
 
-The current [patched frontend preview](https://rentra-ke155ds3k-rakhargos-projects.vercel.app) has since repeated the v2 guard, responsive/catalog, wallet-modal, and rental #5 reads. Its contract addresses and signing source are unchanged. High/critical dependency findings are resolved; 22 moderate findings remain documented in [DEPENDENCY-VALIDATION.md](DEPENDENCY-VALIDATION.md).
+The current [patched frontend preview](https://rentra-ke155ds3k-rakhargos-projects.vercel.app) has since repeated the v2 guard, responsive/catalog, wallet-modal, and rental #5 reads against this superseded instance. Its contract addresses and signing source are unchanged from that build. The committed manifests have since moved to the team-admin instance, so this preview's listings and rental #5 are not visible in an app built from those manifests. High/critical dependency findings are resolved; 22 moderate findings remain documented in [DEPENDENCY-VALIDATION.md](DEPENDENCY-VALIDATION.md).
