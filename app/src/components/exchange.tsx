@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 import { TransactionFeedback } from "@/components/transaction-feedback";
-import { useAccount, useReadContract, useSignTypedData } from "wagmi";
-import { encodeFunctionData, isHex } from "viem";
+import { useAccount, useReadContract, useReadContracts, useSignTypedData } from "wagmi";
+import { encodeFunctionData, isAddress, isHex, zeroAddress } from "viem";
 import type { Hex } from "viem";
 import { PhotoHash } from "@/components/photo-hash";
 import { QrCode } from "@/components/qr-code";
+import { RentalResolution } from "@/components/rental-resolution";
 import { useRentraTx } from "@/components/use-tx";
 import { addresses, chain, configured, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
-import { errText, shortAddr, tupleAt } from "@/lib/format";
+import { errText, formatIDR, formatWhen, rpToWei, shortAddr, tupleAt } from "@/lib/format";
 import { escrowDomain, handoverTypes, returnTypes } from "@/lib/sign";
 
 type Payload = {
@@ -19,6 +20,7 @@ type Payload = {
   photoHash: Hex;
   timestamp: string;
   nonce: string;
+  mediator: string;
 };
 
 export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rentalId: bigint }) {
@@ -42,6 +44,12 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
   const owner = String(tupleAt(rental.data, 1) ?? "");
   const renter = String(tupleAt(rental.data, 2) ?? "");
   const status = Number(tupleAt(rental.data, 10) ?? 0);
+  const mediation = useReadContract({
+    chainId: chain.id, address: addresses.escrow, abi: rentalEscrowAbi,
+    functionName: "mediations", args: [rentalId], query: { enabled: tx.writable },
+  });
+  const mediator = String(tupleAt(mediation.data, 1) ?? zeroAddress) as `0x${string}`;
+  const mediatorPending = String(tupleAt(mediation.data, 0) ?? zeroAddress) !== zeroAddress && mediator === zeroAddress;
   const signer = mode === "handover" ? renter : owner;
   const nonceRead = useReadContract({
     chainId: chain.id,
@@ -56,11 +64,11 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
   const isRenter = address?.toLowerCase() === renter.toLowerCase();
   const nonce = typeof nonceRead.data === "bigint" ? nonceRead.data : 0n;
 
-  function captureHash(hash: Hex) {
+  function captureHash(hash: Hex | "") {
     setSignature("");
     setLocalError(null);
     setPhotoHash(hash);
-    setTimestamp(String(Math.floor(Date.now() / 1000)));
+    setTimestamp(hash ? String(Math.floor(Date.now() / 1000)) : "");
   }
 
   const payload: Payload | null =
@@ -71,6 +79,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
           photoHash,
           timestamp,
           nonce: nonce.toString(),
+          mediator,
         }
       : null;
 
@@ -88,7 +97,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
             domain: escrowDomain(),
             types: handoverTypes,
             primaryType: "Handover",
-            message,
+            message: { ...message, mediator: raw.mediator as `0x${string}` },
           })
         : await signTypedDataAsync({
             domain: escrowDomain(),
@@ -108,6 +117,8 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
         parsed.photoHash.length !== 66 ||
         parsed.kind !== mode ||
         parsed.rentalId !== rentalId.toString() ||
+        !isAddress(parsed.mediator) ||
+        parsed.mediator.toLowerCase() !== mediator.toLowerCase() ||
         !/^\d+$/.test(parsed.timestamp) ||
         !/^\d+$/.test(parsed.nonce) ||
         parsed.nonce !== nonce.toString()
@@ -139,11 +150,11 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
 
   const title = mode === "handover" ? "Ready for the handover?" : "Wrap up your rental.";
   const canSign =
-    configured &&
-    (mode === "handover" ? isRenter && status === 0 : isOwner && (status === 1 || status === 3));
+    tx.writable && !rental.isError && !rental.isLoading &&
+    (mode === "handover" ? isRenter && status === 0 && !mediatorPending && !mediation.isLoading && !mediation.isError : isOwner && [1, 3, 9, 10].includes(status));
   const canSubmit =
-    configured &&
-    (mode === "handover" ? isOwner && status === 0 : isRenter && (status === 1 || status === 3));
+    tx.writable && !rental.isError && !rental.isLoading &&
+    (mode === "handover" ? isOwner && status === 0 && !mediatorPending : isRenter && [1, 3, 9, 10].includes(status));
 
   return (
     <div>
@@ -158,7 +169,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
         <p>
           {mode === "handover"
             ? "Check the item together, record its condition, and confirm the pickup."
-            : "Record the item’s condition and confirm the return. The claim window starts once the return is recorded."}
+            : "Record the item’s condition. The 24-hour real-time claim window starts after an acknowledged return. An unsigned request needs acknowledgement or resolution."}
         </p>
       </div>
       <div className="split">
@@ -293,17 +304,17 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
               <button
                 type="button"
                 className="secondary"
-                disabled={!canSubmit || tx.pending || !photoHash}
+                disabled={!canSubmit || tx.pending || !photoHash || ![1, 3].includes(status)}
                 onClick={() => void tx.run(() => submit(true))}
               >
-                Return without owner’s signature
+                Request return acknowledgement
               </button>
             </div>
           )}
           <p className="field-help">
             {mode === "handover"
               ? "The renter signs; the owner submits. The rental becomes active once this transaction is confirmed."
-              : "If the owner won’t sign, you can still record the return. The same claim window applies, and the owner can submit a damage claim."}
+              : "If the owner won’t sign, submit a return request. Funds stay locked and reputation is unchanged until the return is acknowledged or resolved. Keep the original photo and share it with the other party or mediator."}
           </p>
           <TransactionFeedback {...tx} />
           {mode === "return" && (
@@ -311,6 +322,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
           )}
         </aside>
       </div>
+      {tx.writable && <RentalResolution rentalId={rentalId} owner={owner} renter={renter} status={status} />}
     </div>
   );
 }
@@ -330,10 +342,24 @@ function ClaimBox({
   const [amount, setAmount] = useState("100000");
   const [evidence, setEvidence] = useState<Hex | "">("");
   const [counter, setCounter] = useState("0");
+  const reads = useReadContracts({
+    contracts: ["claims", "rentals", "meta", "responseDeadline", "claimDeadline"].map((functionName) => ({
+      chainId: chain.id, address: addresses.escrow, abi: rentalEscrowAbi, functionName, args: [rentalId],
+    })),
+    query: { enabled: tx.writable, refetchInterval: 10_000 },
+  });
+  const rows = reads.data?.map((row) => row.result) ?? [];
+  const claimAmount = tupleAt(rows[1], 11);
+  const remaining = tupleAt(rows[2], 2);
+  const hasCounter = tupleAt(rows[0], 5) === true;
+  const disabled = tx.pending || !tx.writable || reads.isLoading || reads.isError || reads.data?.some((row) => row.status === "failure");
+  const responseOpen = typeof rows[3] === "bigint" && rows[3] > BigInt(Math.floor(Date.now() / 1000));
+  const claimOpen = typeof rows[4] === "bigint" && rows[4] > BigInt(Math.floor(Date.now() / 1000));
 
   async function fileClaim() {
     if (!addresses.escrow || !addresses.idr || !evidence) return;
-    const wei = BigInt(amount.replace(/[^\d]/g, "") || "0") * 10n ** 18n;
+    const wei = rpToWei(amount);
+    if (typeof remaining !== "bigint" || wei > remaining) throw new Error("The claim exceeds the remaining deposit.");
     const bond = wei / 10n;
     const approve = encodeFunctionData({
       abi: [
@@ -362,7 +388,8 @@ function ClaimBox({
 
   async function respond(accept: boolean) {
     if (!addresses.escrow) return;
-    const counterWei = BigInt(counter.replace(/[^\d]/g, "") || "0") * 10n ** 18n;
+    const counterWei = rpToWei(counter);
+    if (!accept && (typeof claimAmount !== "bigint" || counterWei >= claimAmount)) throw new Error("The counteroffer must be lower than the claim.");
     const data = encodeFunctionData({
       abi: rentalEscrowAbi,
       functionName: "respondClaim",
@@ -396,10 +423,13 @@ function ClaimBox({
       <h3>Damage claims</h3>
       <p className="small muted">
         Owners lock a bond worth 10% of the claim. Renters can accept or counter. If a response is
-        missing, the contract applies its timeout rules. Escalation uses those same rules; no
-        community jury is available.
+        missing, funds remain locked until mutual agreement or an agreed mediator’s decision.
+        No community jury or automatic evidence verification is available.
       </p>
-      {isOwner && status === 2 && (
+      {typeof claimAmount === "bigint" && claimAmount > 0n && <p>Owner’s claim: <strong>{formatIDR(claimAmount)}</strong>. Bond: {formatIDR(typeof tupleAt(rows[0], 0) === "bigint" ? tupleAt(rows[0], 0) as bigint : undefined)}.</p>}
+      {typeof remaining === "bigint" && <p>Remaining deposit: {formatIDR(remaining)}</p>}
+      {status === 4 && typeof rows[3] === "bigint" && <p className="field-help">Initial response deadline: {formatWhen(rows[3])}. After it closes, use mutual settlement or the mediator controls below.</p>}
+      {isOwner && status === 2 && claimOpen && (
         <>
           <PhotoHash label="Photo of the damage" onHash={(hash) => setEvidence(hash)} />
           <label htmlFor="claim-amount">Claim amount (Rp)</label>
@@ -414,7 +444,7 @@ function ClaimBox({
           <button
             type="button"
             disabled={
-              tx.pending || !evidence || !/^\d+$/.test(amount) || BigInt(amount || "0") <= 0n
+              disabled || !evidence || !/^\d+$/.test(amount) || BigInt(amount || "0") <= 0n
             }
             onClick={() => void tx.run(fileClaim)}
           >
@@ -422,7 +452,7 @@ function ClaimBox({
           </button>
         </>
       )}
-      {isRenter && status === 4 && (
+      {isRenter && status === 4 && responseOpen && (
         <>
           <label htmlFor="counter-amount">Counteroffer (Rp; enter 0 to reject)</label>
           <input
@@ -436,7 +466,7 @@ function ClaimBox({
           <div className="row">
             <button
               type="button"
-              disabled={tx.pending}
+              disabled={disabled || typeof claimAmount !== "bigint"}
               onClick={() => void tx.run(() => respond(true))}
             >
               Accept claim
@@ -444,7 +474,7 @@ function ClaimBox({
             <button
               type="button"
               className="secondary"
-              disabled={tx.pending || !/^\d+$/.test(counter)}
+              disabled={disabled || !/^\d+$/.test(counter)}
               onClick={() => void tx.run(() => respond(false))}
             >
               Send counteroffer
@@ -452,11 +482,11 @@ function ClaimBox({
           </div>
         </>
       )}
-      {isOwner && (status === 4 || status === 5) && (
+      {isOwner && (status === 4 || status === 5) && hasCounter && (
         <button
           type="button"
           className="secondary"
-          disabled={tx.pending}
+          disabled={disabled}
           onClick={() => void tx.run(acceptCounter)}
         >
           Accept counteroffer
@@ -466,10 +496,10 @@ function ClaimBox({
         <button
           type="button"
           className="secondary"
-          disabled={tx.pending}
+          disabled={disabled}
           onClick={() => void tx.run(escalate)}
         >
-          Escalate to timeout settlement
+          Mark claim disputed
         </button>
       )}
       <TransactionFeedback {...tx} />

@@ -9,7 +9,7 @@ export function PhotoHash({
   onHash,
 }: {
   label: string;
-  onHash: (hash: Hex, fileName: string) => void;
+  onHash: (hash: Hex | "", fileName: string) => void;
 }) {
   const id = useId();
   const selection = useRef(0);
@@ -17,11 +17,21 @@ export function PhotoHash({
   const [hash, setHash] = useState<Hex | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [original, setOriginal] = useState<File | null>(null);
 
   async function onFile(file: File | undefined) {
-    if (!file) return;
     const current = ++selection.current;
+    setHash("");
+    setFileName("");
+    setOriginal(null);
+    onHash("", "");
     setError("");
+    if (!file) { setBusy(false); return; }
+    if (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024) {
+      setError("Choose an image no larger than 20 MB.");
+      setBusy(false);
+      return;
+    }
     setBusy(true);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
@@ -29,6 +39,7 @@ export function PhotoHash({
       if (current !== selection.current) return;
       setFileName(file.name);
       setHash(next);
+      setOriginal(file);
       onHash(next, file.name);
     } catch {
       if (current === selection.current)
@@ -62,6 +73,14 @@ export function PhotoHash({
           </p>
         )}
       </div>
+      {original && hash && <button type="button" className="secondary" onClick={() => {
+        const url = URL.createObjectURL(original);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = original.name;
+        link.click();
+        URL.revokeObjectURL(url);
+      }}>Save original evidence photo</button>}
       <p id={`${id}-help`} className="field-help">
         Your photo stays on this device. Only its digital fingerprint is recorded. Keep the original
         file: a fingerprint doesn’t prove the photo is authentic or unedited.

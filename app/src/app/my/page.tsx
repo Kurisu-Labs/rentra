@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { Icon } from "@/components/icon";
@@ -20,6 +21,8 @@ import { formatIDR, formatWhen, shortAddr, tupleAt } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 
 export default function MyRentalsPage() {
+  const router = useRouter();
+  const [lookupId, setLookupId] = useState("");
   const { address } = useAccount();
   const tx = useRentraTx();
   const next = useReadContract({
@@ -89,6 +92,11 @@ export default function MyRentalsPage() {
     await tx.send(addresses.escrow, data);
   }
 
+  async function cancel(id: bigint) {
+    if (!addresses.escrow) return;
+    await tx.send(addresses.escrow, encodeFunctionData({ abi: rentalEscrowAbi, functionName: "cancel", args: [id] }));
+  }
+
   return (
     <div>
       <div className="page-heading">
@@ -96,6 +104,10 @@ export default function MyRentalsPage() {
         <h1>Your rentals, all in one place.</h1>
         <p>Keep track of what you’re borrowing and lending, with the next step always in reach.</p>
       </div>
+      <form className="card" onSubmit={(event) => { event.preventDefault(); if (/^[1-9]\d*$/.test(lookupId)) router.push(`/return/${lookupId}`); }}>
+        <label htmlFor="rental-lookup">Open a rental by number (including as mediator)</label>
+        <div className="row"><input id="rental-lookup" type="number" min="1" step="1" value={lookupId} onChange={(event) => setLookupId(event.target.value)} /><button type="submit" disabled={!/^[1-9]\d*$/.test(lookupId)}>Open rental</button></div>
+      </form>
       {!address && (
         <div className="empty-state">
           <Icon name="box" size={36} />
@@ -106,8 +118,8 @@ export default function MyRentalsPage() {
       )}
       {demo.data === true && (
         <p className="notice">
-          Demo clock is on: one rental day passes in two real minutes. Rental and claim deadlines
-          are accelerated.
+          Demo clock is on: one rental day passes in two real minutes. In the updated contracts,
+          claim and response windows still use 24 real hours. Check the deployment notice above.
         </p>
       )}
       {!configured && (
@@ -160,9 +172,10 @@ export default function MyRentalsPage() {
               status={status}
               isOwner={isOwner}
               counterparty={isOwner ? renter : owner}
-              pending={tx.pending}
+              pending={tx.pending || !tx.writable}
               onDefault={() => void tx.run(() => claimDefault(id))}
               onFinalize={() => void tx.run(() => finalize(id))}
+              onCancel={() => void tx.run(() => cancel(id))}
             />
           );
         })}
@@ -184,6 +197,7 @@ function RentalCard({
   pending,
   onDefault,
   onFinalize,
+  onCancel,
 }: {
   id: bigint;
   tokenId: bigint;
@@ -196,6 +210,7 @@ function RentalCard({
   pending: boolean;
   onDefault: () => void;
   onFinalize: () => void;
+  onCancel: () => void;
 }) {
   const expires = useReadContract({
     chainId: chain.id,
@@ -241,7 +256,7 @@ function RentalCard({
             {isOwner ? "Review return" : "Return item"}
           </Link>
         )}
-        {(status === 2 || status === 4 || status === 5) && (
+        {[2, 4, 5, 9, 10].includes(status) && (
           <Link className="button secondary" href={`/return/${id}`}>
             Manage return & claims
           </Link>
@@ -251,11 +266,12 @@ function RentalCard({
             Claim non-return
           </button>
         )}
-        {(status === 2 || status === 4 || status === 5) && (
+        {status === 2 && (
           <button type="button" className="secondary" disabled={pending} onClick={onFinalize}>
-            Release / settle funds
+            Release uncontested deposit after deadline
           </button>
         )}
+        {status === 0 && <button type="button" className="secondary" disabled={pending} onClick={onCancel}>Cancel booking & refund</button>}
       </div>
     </article>
   );
