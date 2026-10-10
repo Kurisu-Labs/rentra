@@ -1,3 +1,9 @@
+import type { Abi } from "viem";
+import { contractErrorText } from "@/lib/contract-errors";
+import { mockIdrAbi, rentalEscrowAbi, rentalItemAbi, reputationAbi } from "@/lib/contracts";
+
+const contractAbis: Abi[] = [rentalEscrowAbi, mockIdrAbi, rentalItemAbi, reputationAbi];
+
 export function formatIDR(wei?: bigint | null): string {
   if (wei === undefined || wei === null) return "—";
   const whole = wei / 10n ** 18n;
@@ -38,6 +44,8 @@ export function formatWhen(unix?: bigint | number | null): string {
 }
 
 export function errText(error: unknown): string {
+  const decoded = contractErrorText(error, contractAbis);
+  if (decoded) return decoded;
   if (error && typeof error === "object" && "shortMessage" in error) {
     const message = (error as { shortMessage?: unknown }).shortMessage;
     if (typeof message === "string" && message.length > 0) return message;

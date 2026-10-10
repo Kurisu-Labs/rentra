@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { useAccount, useReadContract, useReadContracts, useSignTypedData } from "wagmi";
 import { encodeFunctionData, isAddress, isHex, zeroAddress } from "viem";
@@ -12,7 +12,9 @@ import { ClaimRelease } from "@/components/claim-release";
 import { RentalResolution } from "@/components/rental-resolution";
 import { useRentraTx } from "@/components/use-tx";
 import { addresses, chain, configured, mockIdrAbi, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
-import { errText, formatIDR, formatWhen, rpToWei, shortAddr, tupleAt } from "@/lib/format";
+import { errText, asBigint, formatIDR, formatWhen, rpToWei, shortAddr, tupleAt } from "@/lib/format";
+import { formatCountdown } from "@/lib/claim-window";
+import { formatPickupClock, isPickupOpen, pickupSecondsRemaining } from "@/lib/pickup-window";
 import { expectRentalStatus } from "@/lib/tx-expectations";
 import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { escrowDomain, handoverTypes, returnTypes } from "@/lib/sign";
@@ -35,6 +37,13 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
   const [signature, setSignature] = useState("");
   const [pasted, setPasted] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    if (mode !== "handover") return;
+    const timer = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [mode]);
 
   const rental = useReadContract({
     chainId: chain.id,
@@ -47,6 +56,8 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
   const owner = String(tupleAt(rental.data, 1) ?? "");
   const renter = String(tupleAt(rental.data, 2) ?? "");
   const status = Number(tupleAt(rental.data, 10) ?? 0);
+  const start = asBigint(tupleAt(rental.data, 3));
+  const waitingForPickup = mode === "handover" && status === 0 && !isPickupOpen(start, now);
   const mediation = useReadContract({
     chainId: chain.id, address: addresses.escrow, abi: rentalEscrowAbi,
     functionName: "mediations", args: [rentalId], query: { enabled: tx.writable },
@@ -155,10 +166,10 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
 
   const title = mode === "handover" ? "Ready for the handover?" : "Wrap up your rental.";
   const canSign =
-    tx.writable && !rental.isError && !rental.isLoading &&
+    tx.writable && !rental.isError && !rental.isLoading && !waitingForPickup &&
     (mode === "handover" ? isRenter && status === 0 && !mediatorPending && !mediation.isLoading && !mediation.isError : isOwner && [1, 3, 9, 10].includes(status));
   const canSubmit =
-    tx.writable && !rental.isError && !rental.isLoading &&
+    tx.writable && !rental.isError && !rental.isLoading && !waitingForPickup &&
     (mode === "handover" ? isOwner && status === 0 && !mediatorPending : isRenter && [1, 3, 9, 10].includes(status));
 
   return (
@@ -179,6 +190,11 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
       </div>
       {mode === "handover" && Boolean(rental.data) && status === 0 && (
         <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>
+      )}
+      {waitingForPickup && start !== undefined && (
+        <p className="notice" role="status">
+          Pickup dibuka pukul {formatPickupClock(Number(start))} · {formatCountdown(pickupSecondsRemaining(start, now))}
+        </p>
       )}
       <div className="split">
         <section className="card">
@@ -204,7 +220,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
             label={mode === "handover" ? "Photo at pickup" : "Photo at return"}
             onHash={captureHash}
           />
-          {payload && (
+          {payload && !waitingForPickup && (
             <>
               <p className="small muted" style={{ marginTop: 16 }}>
                 Share this code with the other person. They can copy and paste the exchange data
