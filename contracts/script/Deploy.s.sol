@@ -8,11 +8,10 @@ import {Reputation} from "../src/Reputation.sol";
 import {RentalEscrow} from "../src/RentalEscrow.sol";
 
 /// @notice Deploy MockIDR, RentalItem, Reputation, and RentalEscrow to Ethereum Sepolia (chain id 11155111).
-///         Demo mode is on: 1 logical day = 2 real minutes. Items are listed by owners after deploy.
+///         Real-time clock by default. RENTRA_DEMO_MODE=true accelerates rental deadlines only.
 ///
-///         Requires SEPOLIA_RPC_URL and DEPLOYER_PRIVATE_KEY. Do not commit either value.
-///         forge script script/Deploy.s.sol --rpc-url sepolia --broadcast
-///         Writes deployments/sepolia.json and ../app/src/deployments/sepolia.json, then prints the addresses.
+///         Requires SEPOLIA_RPC_URL and a CLI signer (--account/--sender), or legacy DEPLOYER_PRIVATE_KEY.
+///         Writes only an unverified candidate. Promote manifests after RPC verification succeeds.
 contract Deploy is Script {
     uint256 internal constant SEPOLIA_CHAIN_ID = 11155111;
 
@@ -21,37 +20,44 @@ contract Deploy is Script {
         require(bytes(rpc).length != 0, "SEPOLIA_RPC_URL is empty");
         require(block.chainid == SEPOLIA_CHAIN_ID, "expected Ethereum Sepolia (11155111)");
 
-        uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        vm.startBroadcast(pk);
+        string memory rawKey = vm.envOr("DEPLOYER_PRIVATE_KEY", string(""));
+        uint256 pk = bytes(rawKey).length == 0 ? 0 : vm.parseUint(rawKey);
+        address deployer = pk == 0 ? msg.sender : vm.addr(pk);
+        bool demoMode = vm.envOr("RENTRA_DEMO_MODE", false);
+        if (pk == 0) vm.startBroadcast(deployer);
+        else vm.startBroadcast(pk);
 
         MockIDR idr = new MockIDR();
         RentalItem item = new RentalItem();
         Reputation reputation = new Reputation();
-        // Demo clock on for the hackathon recording. Turn it off with setDemoMode(false) for real time.
-        RentalEscrow escrow = new RentalEscrow(address(idr), address(item), address(reputation), true);
+        RentalEscrow escrow = new RentalEscrow(address(idr), address(item), address(reputation), demoMode);
         item.setEscrow(address(escrow));
         reputation.setEscrow(address(escrow));
 
         vm.stopBroadcast();
 
-        string memory json = _deploymentJson(address(idr), address(item), address(reputation), address(escrow));
-        vm.writeJson(json, "deployments/sepolia.json");
-        vm.writeJson(json, "../app/src/deployments/sepolia.json");
+        string memory json =
+            _deploymentJson(address(idr), address(item), address(reputation), address(escrow), deployer, demoMode);
+        vm.writeJson(json, "deployments/sepolia.candidate.json");
 
         console2.log("chainId", block.chainid);
-        console2.log("deployer", vm.addr(pk));
+        console2.log("deployer", deployer);
         console2.log("MockIDR", address(idr));
         console2.log("RentalItem", address(item));
         console2.log("Reputation", address(reputation));
         console2.log("RentalEscrow", address(escrow));
-        console2.log("wrote deployments/sepolia.json");
-        console2.log("wrote ../app/src/deployments/sepolia.json");
+        console2.log("wrote unverified deployments/sepolia.candidate.json");
+        console2.log("run app deployment verification before promoting these addresses");
     }
 
-    function _deploymentJson(address idr, address item, address reputation, address escrow)
-        internal
-        returns (string memory)
-    {
+    function _deploymentJson(
+        address idr,
+        address item,
+        address reputation,
+        address escrow,
+        address deployer,
+        bool demoMode
+    ) internal returns (string memory) {
         string memory contractsKey = "contracts";
         vm.serializeAddress(contractsKey, "MockIDR", idr);
         vm.serializeAddress(contractsKey, "RentalItem", item);
@@ -60,7 +66,9 @@ contract Deploy is Script {
 
         string memory root = "deployment";
         vm.serializeUint(root, "chainId", SEPOLIA_CHAIN_ID);
-        vm.serializeBool(root, "demoMode", true);
+        vm.serializeUint(root, "protocolVersion", 2);
+        vm.serializeAddress(root, "deployer", deployer);
+        vm.serializeBool(root, "demoMode", demoMode);
         return vm.serializeString(root, "contracts", contractsJson);
     }
 }

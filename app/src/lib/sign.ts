@@ -1,40 +1,14 @@
 import type { Address, Hex } from "viem";
 import { chain, addresses } from "@/lib/contracts";
 
-export const handoverTypes = {
-  Handover: [
-    { name: "rentalId", type: "uint256" },
-    { name: "photoHash", type: "bytes32" },
-    { name: "timestamp", type: "uint64" },
-    { name: "nonce", type: "uint256" },
-  ],
-} as const;
-
-export const returnTypes = {
-  Return: [
-    { name: "rentalId", type: "uint256" },
-    { name: "photoHash", type: "bytes32" },
-    { name: "timestamp", type: "uint64" },
-    { name: "nonce", type: "uint256" },
-  ],
-} as const;
-
-export const permitTypes = {
-  Permit: [
-    { name: "owner", type: "address" },
-    { name: "spender", type: "address" },
-    { name: "value", type: "uint256" },
-    { name: "nonce", type: "uint256" },
-    { name: "deadline", type: "uint256" },
-  ],
-} as const;
+export { handoverTypes, returnTypes, permitTypes } from "@/lib/signing-types";
 
 export function escrowDomain() {
   if (!addresses.escrow)
     throw new Error("Rental bookings are unavailable. Please try again later.");
   return {
     name: "Rentra",
-    version: "1",
+    version: "2",
     chainId: chain.id,
     verifyingContract: addresses.escrow,
   } as const;

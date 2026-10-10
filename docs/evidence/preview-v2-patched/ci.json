@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "de8e4915ba8dfee8d2209c48f6d5920f05c2b3a4",
+  "runId": 38033035515,
+  "url": "https://github.com/Kurisu-Labs/rentra/actions/runs/38033035515",
+  "jobs": {
+    "app": "success",
+    "contracts": "success"
+  },
+  "auditHighCriticalGate": "success"
+}

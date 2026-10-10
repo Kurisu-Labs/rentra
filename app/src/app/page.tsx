@@ -91,8 +91,8 @@ export default function CatalogPage() {
             </div>
           </div>
           <p className="small muted">
-            On-time rentals from different owners earn a lower deposit. Discounts apply up to your
-            highest successfully rented value.
+            Settled on-time rentals from different approved owners can earn a lower deposit, subject
+            to each owner’s minimum. Discounts apply up to your highest qualifying rented value.
           </p>
           <Link className="text-link" href="/reputation">
             Get to know your reputation <Icon name="arrow" size={16} />

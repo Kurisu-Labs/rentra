@@ -1,0 +1,44 @@
+{
+  "url": "https://rentra-e6d65lrk4-rakhargos-projects.vercel.app",
+  "deploymentId": "dpl_AchuXJG4t9ZeGCZeYokztVQwj6qr",
+  "readyState": "READY",
+  "target": null,
+  "sourceCommit": "6e92f7ceaa0c2f53f6c5c5f4922a3854ad358cc4",
+  "framework": "nextjs",
+  "nodeVersion": "22.x",
+  "routes": [
+    {
+      "path": "/",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    },
+    {
+      "path": "/my",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    },
+    {
+      "path": "/list",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    },
+    {
+      "path": "/reputation",
+      "status": 200,
+      "hasRentraTitle": true,
+      "hasTestnetLabel": false
+    }
+  ],
+  "embeddedV2Contracts": [
+    "MockIDR",
+    "RentalEscrow",
+    "RentalItem",
+    "Reputation"
+  ],
+  "publicRpcFound": true,
+  "assetCount": 18,
+  "checkedAt": "2026-10-10T06:22:58.530553+00:00"
+}

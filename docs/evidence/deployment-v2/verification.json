@@ -1,0 +1,133 @@
+{
+  "chainId": 11155111,
+  "protocolVersion": 2,
+  "deployer": "0xadf00a2476c77163B607af6E55A6a90185ae33f6",
+  "sourceCommit": "941ae8e4f9a80271589fa7cb49794ff9c03ae427",
+  "demoMode": false,
+  "verifiedAtBlock": "11882487",
+  "contracts": {
+    "MockIDR": "0x5f1540ad73433d80e510efa8dac04d2acbfa8f24",
+    "RentalItem": "0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525",
+    "Reputation": "0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a",
+    "RentalEscrow": "0x9be48b39d3fa6cbf929141a247d9302495d17a73"
+  },
+  "bytecodeChecks": [
+    {
+      "contract": "MockIDR",
+      "address": "0x5f1540ad73433d80e510efa8dac04d2acbfa8f24",
+      "runtimeHash": "0xeeb384c0a11d72c699086c838c94f917ffaec6813c613341a62082876b314e3c",
+      "runtimeBytes": 3941,
+      "immutableRanges": 7,
+      "bytecodeMatch": true
+    },
+    {
+      "contract": "RentalItem",
+      "address": "0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525",
+      "runtimeHash": "0x36f54b9a563a300b32539341e49b07aead79770ef18bada40873415b6681af63",
+      "runtimeBytes": 6784,
+      "immutableRanges": 0,
+      "bytecodeMatch": true
+    },
+    {
+      "contract": "Reputation",
+      "address": "0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a",
+      "runtimeHash": "0x9e27506e6d13e919286d66da70d7b21762ccaca101ecaaa737d4f6577f0f73ff",
+      "runtimeBytes": 3219,
+      "immutableRanges": 0,
+      "bytecodeMatch": true
+    },
+    {
+      "contract": "RentalEscrow",
+      "address": "0x9be48b39d3fa6cbf929141a247d9302495d17a73",
+      "runtimeHash": "0x2f15f3e4ee5a1685e008a8b0e4de77000ce749048b0115461b135ba5fd835637",
+      "runtimeBytes": 20765,
+      "immutableRanges": 43,
+      "bytecodeMatch": true
+    }
+  ],
+  "signatureDomainsVerified": true,
+  "actualGasCostETH": "0.000055900770380195",
+  "transactions": [
+    {
+      "name": "MockIDR",
+      "hash": "0xf7953c08a03631887fa6f9239208cde622c875fd99999a2f09b8432a26d59e8d",
+      "blockNumber": "11882459",
+      "gasUsed": "6537679",
+      "effectiveGasPrice": "1000020"
+    },
+    {
+      "name": "RentalItem",
+      "hash": "0xda0eb17fafee1abe5c350dc6e4e29e29976921c89bd3f215a510d6f4fd421e4b",
+      "blockNumber": "11882460",
+      "gasUsed": "11147625",
+      "effectiveGasPrice": "1000020"
+    },
+    {
+      "name": "Reputation",
+      "hash": "0x8fb7d79d94109a50ebbba570f7536c82281357d074a59ef5574c820f19d3902a",
+      "blockNumber": "11882461",
+      "gasUsed": "5296172",
+      "effectiveGasPrice": "1000020"
+    },
+    {
+      "name": "RentalEscrow",
+      "hash": "0x0110f18c5045f9a5b0b5f31ca95bba96dda6b8b38ca11634427ac99eed35a04c",
+      "blockNumber": "11882462",
+      "gasUsed": "32660437",
+      "effectiveGasPrice": "1000020"
+    },
+    {
+      "name": "RentalItem.setEscrow",
+      "hash": "0x8c0e8d2b9533fb16115567a6a68ed84a157ededdc0d08043bc2e61949fe753f8",
+      "blockNumber": "11882464",
+      "gasUsed": "128323",
+      "effectiveGasPrice": "1000021"
+    },
+    {
+      "name": "Reputation.setEscrow",
+      "hash": "0x33dac203e273a629d4cf92e3b7169bc16625eeceac5eab57c554fe543b490be7",
+      "blockNumber": "11882465",
+      "gasUsed": "129416",
+      "effectiveGasPrice": "1000022"
+    }
+  ],
+  "scope": "Deployment and read-only integration checks; no funded multi-wallet rental E2E has been performed",
+  "sourceVerification": {
+    "provider": "Sourcify",
+    "contracts": {
+      "MockIDR": {
+        "address": "0x5f1540aD73433d80e510eFA8DAC04d2acbfA8f24",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-10-10T05:38:11Z",
+        "verificationId": "c02ea483-00c6-40ae-9a86-52fb767f4daa",
+        "sourceUrl": "https://repo.sourcify.dev/11155111/0x5f1540aD73433d80e510eFA8DAC04d2acbfA8f24"
+      },
+      "RentalItem": {
+        "address": "0x29A2Ded83F440fC1d16d0f1617E8c2FB7D2C8525",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-10-10T05:38:13Z",
+        "verificationId": "74b26128-ea75-4302-bcf6-680570002eda",
+        "sourceUrl": "https://repo.sourcify.dev/11155111/0x29A2Ded83F440fC1d16d0f1617E8c2FB7D2C8525"
+      },
+      "Reputation": {
+        "address": "0x6356F9B9e5dD5A13E2b1fDd2680f19d5ef5f1c1a",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-10-10T05:38:13Z",
+        "verificationId": "093e4a7b-609c-41ef-bcb2-620dd13c83c3",
+        "sourceUrl": "https://repo.sourcify.dev/11155111/0x6356F9B9e5dD5A13E2b1fDd2680f19d5ef5f1c1a"
+      },
+      "RentalEscrow": {
+        "address": "0x9BE48B39d3fa6cbF929141A247d9302495D17A73",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-10-10T05:38:16Z",
+        "verificationId": "796ffb8b-a1ee-4048-9425-d27a107f253c",
+        "sourceUrl": "https://repo.sourcify.dev/11155111/0x9BE48B39d3fa6cbF929141A247d9302495D17A73"
+      }
+    },
+    "etherscan": "Not claimed complete; Sourcify is the confirmed source-verification provider"
+  }
+}

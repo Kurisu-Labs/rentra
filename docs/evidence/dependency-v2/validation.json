@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-10T06:49:30.019357+00:00",
+  "nodeVersion": "22.23.3",
+  "baselineAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 24,
+    "high": 2,
+    "critical": 0,
+    "total": 26
+  },
+  "patchedAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 22,
+    "high": 0,
+    "critical": 0,
+    "total": 22
+  },
+  "changedLockEntries": [
+    {
+      "path": "node_modules/@wagmi/connectors/node_modules/ws",
+      "before": "8.18.0",
+      "after": "8.22.0"
+    },
+    {
+      "path": "node_modules/engine.io-client/node_modules/ws",
+      "before": "8.21.3",
+      "after": "8.22.0"
+    },
+    {
+      "path": "node_modules/postcss",
+      "before": "8.4.31",
+      "after": "8.5.29"
+    },
+    {
+      "path": "node_modules/viem/node_modules/ws",
+      "before": "8.21.0",
+      "after": "8.22.0"
+    }
+  ],
+  "validation": {
+    "cleanNpmCi": "passed",
+    "nodeTests": 7,
+    "productionBuild": "passed",
+    "highCriticalAuditGate": "passed"
+  },
+  "sha256": {
+    "app/package.json": "3342a846c9d3087b8161f1c9ebc240c960abd89152a702790a2d050a54802378",
+    "app/package-lock.json": "b0df42269d0831d9d18d73913f7055c8b1428dbf7cbeddd1f1d34a6216078add"
+  }
+}

@@ -1,5 +1,7 @@
 # Rentra: Rencana Build Lengkap (Ethereum Jakarta Hackathon 2026)
 
+> **Catatan implementasi v2, 10 Oktober:** dokumen ini adalah rencana historis. Aturan kode lokal terbaru ada di `RENTAL-SAFETY.md` dan README. Pengembalian sepihak menjadi permintaan; sengketa perlu kesepakatan atau penengah yang disetujui sebelum serah terima; reputasi diberikan saat settlement; diskon hanya dari pemilik yang disetujui; listing punya minimum deposit; jendela klaim memakai 24 jam nyata. Instance v2 baru sudah dideploy dan menjadi default; bukti dan batas validasinya ada di `DEPLOYMENT-V2.md`. Tidak ada migrasi dana/reputasi v1; uji rental multi-wallet Sepolia masih pending.
+
 *Disusun Jumat, 9 Okt 2026, ±12.00 WIB. Deadline submission: **Sabtu 10 Okt 2026, 12.00 WIB** (target submit 11.30). Track: "BUILD THE REAL WORLD ONCHAIN". Kriteria: Utility 25%, Onchain 25%, Innovation 20%, Feasibility 20%, Demo/UX 10% ([HackQuest](https://www.hackquest.io/hackathons/Ethereum-Jakarta-Hackathon-2026)).*
 
 > **Tagline:** *"Sewa barang tanpa menitipkan KTP. Jaminanmu adalah deposit yang dikunci kode dan reputasimu sendiri."*

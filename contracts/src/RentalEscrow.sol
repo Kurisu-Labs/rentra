@@ -14,7 +14,7 @@ import {Reputation} from "./Reputation.sol";
 /// @notice Holds rent + deposit. Neither party can pull funds except through the rules below.
 ///
 /// Handover / return signatures (EIP-712):
-///   Handover(uint256 rentalId, bytes32 photoHash, uint64 timestamp, uint256 nonce)
+///   Handover(uint256 rentalId, bytes32 photoHash, uint64 timestamp, address mediator, uint256 nonce)
 ///   Return(uint256 rentalId, bytes32 photoHash, uint64 timestamp, uint256 nonce)
 ///
 /// The plan's sketch omits `timestamp` from the calldata. It has to be supplied so the
@@ -34,9 +34,10 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     uint256 public constant SIG_FUTURE_SKEW = 5 minutes;
     uint16 public constant BOND_BPS = 1_000; // 10% of the claimed amount
     uint16 public constant FULL_BPS = 10_000;
+    uint256 public constant PROTOCOL_VERSION = 2;
 
     bytes32 public constant HANDOVER_TYPEHASH =
-        keccak256("Handover(uint256 rentalId,bytes32 photoHash,uint64 timestamp,uint256 nonce)");
+        keccak256("Handover(uint256 rentalId,bytes32 photoHash,uint64 timestamp,address mediator,uint256 nonce)");
     bytes32 public constant RETURN_TYPEHASH =
         keccak256("Return(uint256 rentalId,bytes32 photoHash,uint64 timestamp,uint256 nonce)");
 
@@ -49,7 +50,9 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         Disputed,
         Settled,
         Defaulted,
-        Cancelled
+        Cancelled,
+        ReturnRequested,
+        ReturnDisputed
     }
 
     struct Rental {
@@ -83,11 +86,27 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         bool hasCounter;
     }
 
+    struct ReturnRequest {
+        uint64 requestedAtLogical;
+        bytes32 ownerEvidenceHash;
+    }
+
+    struct Mediation {
+        address proposed;
+        address mediator;
+    }
+
+    struct SettlementOffer {
+        address proposer;
+        uint256 amount;
+    }
+
     IERC20 public immutable idr;
     RentalItem public immutable item;
     Reputation public immutable reputation;
     address public admin;
     bool public demoMode;
+    uint256 public openRentalCount;
 
     uint256 public nextRentalId = 1;
     mapping(uint256 rentalId => Rental) public rentals;
@@ -96,6 +115,11 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     mapping(uint256 tokenId => bool) public isLocked;
     mapping(uint256 tokenId => uint256 rentalId) public openRentalOf;
     mapping(address signer => uint256 nonce) public nonces;
+    mapping(uint256 rentalId => ReturnRequest) public returnRequests;
+    mapping(uint256 rentalId => Mediation) public mediations;
+    mapping(uint256 rentalId => SettlementOffer) public settlementOffers;
+    mapping(uint256 rentalId => uint64) public claimDeadline;
+    mapping(uint256 rentalId => uint64) public responseDeadline;
 
     event Booked(uint256 indexed rentalId, uint256 indexed tokenId, address renter, uint256 deposit);
     event HandedOver(uint256 indexed rentalId, bytes32 photoOutHash, uint64 expires);
@@ -108,6 +132,11 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     event Escalated(uint256 indexed rentalId);
     event MarkedLate(uint256 indexed rentalId);
     event DemoModeSet(bool enabled);
+    event ReturnRequested(uint256 indexed rentalId, bytes32 photoHash);
+    event ReturnDisputed(uint256 indexed rentalId, bytes32 evidenceHash);
+    event MediatorProposed(uint256 indexed rentalId, address mediator);
+    event MediatorAccepted(uint256 indexed rentalId, address mediator);
+    event SettlementProposed(uint256 indexed rentalId, address proposer, uint256 amount);
 
     error NotAdmin();
     error NotParty();
@@ -130,13 +159,19 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     error AlreadyResponded();
     error ZeroAddress();
     error ZeroPayment();
+    error OpenRentals();
+    error MediatorPending();
+    error MediatorFrozen();
+    error NotMediator();
+    error ResolutionRequired();
+    error StaleOffer();
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert NotAdmin();
         _;
     }
 
-    constructor(address idr_, address item_, address reputation_, bool demoMode_) EIP712("Rentra", "1") {
+    constructor(address idr_, address item_, address reputation_, bool demoMode_) EIP712("Rentra", "2") {
         if (idr_ == address(0) || item_ == address(0) || reputation_ == address(0)) revert ZeroAddress();
         idr = IERC20(idr_);
         item = RentalItem(item_);
@@ -146,6 +181,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     }
 
     function setDemoMode(bool enabled) external onlyAdmin {
+        if (openRentalCount != 0) revert OpenRentals();
         demoMode = enabled;
         emit DemoModeSet(enabled);
     }
@@ -159,6 +195,8 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     function quoteDeposit(uint256 tokenId, address renter) public view returns (uint256) {
         (uint256 value,,,) = item.terms(tokenId);
         uint16 factor = reputation.depositFactorBps(renter);
+        uint16 floor = item.depositFloorBps(tokenId);
+        if (factor < floor) factor = floor;
         if (factor >= FULL_BPS) return value;
         uint256 cap = reputation.maxSuccessfulValue(renter);
         if (cap == 0) return value;
@@ -251,7 +289,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         _handover(rentalId, photoOutHash, timestamp, renterSig);
     }
 
-    /// @notice Plan signature. Empty `ownerSig` is a unilateral return when the owner will not sign
+    /// @notice Empty `ownerSig` requests acknowledgement; it cannot complete a return or release funds.
     ///         (docs/PLAN.md §8). Otherwise `ownerSig` is `abi.encode(uint64 timestamp, bytes ecdsaSig)`.
     function confirmReturn(uint256 rentalId, bytes32 photoInHash, bytes calldata ownerSig) external nonReentrant {
         if (ownerSig.length == 0) {
@@ -292,6 +330,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
 
         uint256 payout = r.rent + r.deposit + r.guarantee;
         r.status = Status.Defaulted;
+        meta[rentalId].depositRemaining = 0;
         _unlock(r.tokenId);
         item.setUser(r.tokenId, address(0), 0);
 
@@ -301,8 +340,114 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         emit Defaulted(rentalId);
     }
 
+    /// @notice Both parties choose their mediator before handing over any physical item.
+    function proposeMediator(uint256 rentalId, address mediator) external {
+        Rental storage r = rentals[rentalId];
+        if (msg.sender != r.owner) revert NotOwner();
+        if (r.status != Status.Booked) revert BadStatus();
+        if (mediations[rentalId].mediator != address(0)) revert MediatorFrozen();
+        if (mediator == r.owner || mediator == r.renter || mediator == address(this)) revert NotParty();
+        mediations[rentalId].proposed = mediator;
+        emit MediatorProposed(rentalId, mediator);
+    }
+
+    function acceptMediator(uint256 rentalId, address expectedMediator) external {
+        Rental storage r = rentals[rentalId];
+        if (msg.sender != r.renter) revert NotRenter();
+        if (r.status != Status.Booked) revert BadStatus();
+        Mediation storage m = mediations[rentalId];
+        if (m.mediator != address(0)) revert MediatorFrozen();
+        if (expectedMediator == address(0) || m.proposed != expectedMediator) revert StaleOffer();
+        m.mediator = expectedMediator;
+        emit MediatorAccepted(rentalId, expectedMediator);
+    }
+
+    function acknowledgeReturn(uint256 rentalId) external nonReentrant {
+        Rental storage r = rentals[rentalId];
+        if (msg.sender != r.owner) revert NotOwner();
+        _requireReturnRequest(r.status);
+        _completeReturn(rentalId, r.photoInHash, returnRequests[rentalId].requestedAtLogical);
+    }
+
+    function disputeReturn(uint256 rentalId, bytes32 evidenceHash) external {
+        Rental storage r = rentals[rentalId];
+        if (msg.sender != r.owner) revert NotOwner();
+        if (r.status != Status.ReturnRequested) revert BadStatus();
+        if (evidenceHash == bytes32(0)) revert EmptyPhoto();
+        r.status = Status.ReturnDisputed;
+        returnRequests[rentalId].ownerEvidenceHash = evidenceHash;
+        emit ReturnDisputed(rentalId, evidenceHash);
+    }
+
+    /// @notice The agreed mediator can only distribute this rental's funds to its two parties.
+    function resolveReturn(uint256 rentalId, bool returned, uint256 compensation) external nonReentrant {
+        Rental storage r = rentals[rentalId];
+        _requireMediator(rentalId);
+        _requireReturnRequest(r.status);
+        if (returned) {
+            uint256 remaining = r.deposit - lateFee(rentalId, returnRequests[rentalId].requestedAtLogical);
+            if (compensation > remaining) revert BadAmount();
+            _completeReturn(rentalId, r.photoInHash, returnRequests[rentalId].requestedAtLogical);
+            _payoutClaim(rentalId, compensation, true);
+        } else {
+            if (compensation != 0) revert BadAmount();
+            (,,, uint32 graceHours) = item.terms(r.tokenId);
+            if (_logicalNow(meta[rentalId].bookedAtReal) < uint256(r.end) + uint256(graceHours) * 1 hours) {
+                revert GraceNotOver();
+            }
+            r.status = Status.Defaulted;
+            meta[rentalId].depositRemaining = 0;
+            _unlock(r.tokenId);
+            item.setUser(r.tokenId, address(0), 0);
+            reputation.record(r.renter, reputation.OUTCOME_DEFAULT(), 0, r.owner);
+            idr.safeTransfer(r.owner, r.rent + r.deposit);
+            emit Defaulted(rentalId);
+        }
+    }
+
+    function proposeSettlement(uint256 rentalId, uint256 amount) external {
+        Rental storage r = rentals[rentalId];
+        if (msg.sender != r.owner && msg.sender != r.renter) revert NotParty();
+        _requireNegotiable(r.status);
+        uint256 remaining = meta[rentalId].depositRemaining;
+        if (r.status == Status.ReturnRequested || r.status == Status.ReturnDisputed) {
+            remaining = r.deposit - lateFee(rentalId, returnRequests[rentalId].requestedAtLogical);
+        }
+        if (amount > remaining) revert BadAmount();
+        // A new offer replaces every previous counter, including the legacy claim counter.
+        claims[rentalId].hasCounter = false;
+        claims[rentalId].counterAmount = 0;
+        settlementOffers[rentalId] = SettlementOffer(msg.sender, amount);
+        emit SettlementProposed(rentalId, msg.sender, amount);
+    }
+
+    function acceptSettlement(uint256 rentalId, address proposer, uint256 amount) external nonReentrant {
+        Rental storage r = rentals[rentalId];
+        if (msg.sender != r.owner && msg.sender != r.renter) revert NotParty();
+        _requireNegotiable(r.status);
+        SettlementOffer memory offer = settlementOffers[rentalId];
+        if (
+            offer.proposer == address(0) || offer.proposer == msg.sender || offer.proposer != proposer
+                || offer.amount != amount
+        ) {
+            revert StaleOffer();
+        }
+        if (r.status == Status.ReturnRequested || r.status == Status.ReturnDisputed) {
+            _completeReturn(rentalId, r.photoInHash, returnRequests[rentalId].requestedAtLogical);
+        }
+        _payoutClaim(rentalId, amount, true);
+    }
+
+    function resolveClaim(uint256 rentalId, uint256 amount, bool returnBond) external nonReentrant {
+        Rental storage r = rentals[rentalId];
+        _requireMediator(rentalId);
+        if (r.status != Status.Claimed && r.status != Status.Disputed) revert BadStatus();
+        if (amount > r.claimAmount || amount > meta[rentalId].depositRemaining) revert BadAmount();
+        _payoutClaim(rentalId, amount, returnBond);
+    }
+
     // ---------------------------------------------------------------------
-    // Damage claim (bonded offer / counter / timeout). No juror pool in the MVP.
+    // Damage claim (bonded offer / counter / agreed mediation). No juror pool in the MVP.
     // ---------------------------------------------------------------------
 
     function fileDamageClaim(uint256 rentalId, uint256 amount, bytes32 evidenceHash) external nonReentrant {
@@ -312,8 +457,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         if (amount == 0 || amount > meta[rentalId].depositRemaining) revert BadAmount();
         if (evidenceHash == bytes32(0)) revert EmptyPhoto();
 
-        uint64 nowLogical = _logicalNow(meta[rentalId].bookedAtReal);
-        if (nowLogical > meta[rentalId].returnedAtLogical + CLAIM_WINDOW) revert WindowClosed();
+        if (block.timestamp >= claimDeadline[rentalId]) revert WindowClosed();
 
         uint256 bond = (amount * BOND_BPS) / FULL_BPS;
         if (bond == 0) revert BadAmount();
@@ -324,10 +468,12 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
             bond: bond,
             counterAmount: 0,
             evidenceHash: evidenceHash,
-            filedAt: nowLogical,
+            filedAt: uint64(block.timestamp),
             responded: false,
             hasCounter: false
         });
+        delete settlementOffers[rentalId];
+        responseDeadline[rentalId] = uint64(block.timestamp + RESPONSE_WINDOW);
 
         idr.safeTransferFrom(r.owner, address(this), bond);
         emit ClaimFiled(rentalId, amount, evidenceHash);
@@ -340,8 +486,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         if (r.status != Status.Claimed) revert BadStatus();
         if (c.responded) revert AlreadyResponded();
 
-        uint64 nowLogical = _logicalNow(meta[rentalId].bookedAtReal);
-        if (nowLogical > c.filedAt + RESPONSE_WINDOW) revert WindowClosed();
+        if (block.timestamp >= responseDeadline[rentalId]) revert WindowClosed();
 
         c.responded = true;
         if (accept) {
@@ -351,7 +496,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         if (counterAmount >= r.claimAmount) revert BadAmount();
         c.hasCounter = true;
         c.counterAmount = counterAmount;
-        c.filedAt = nowLogical;
+        delete settlementOffers[rentalId];
         emit ClaimCountered(rentalId, counterAmount);
     }
 
@@ -364,44 +509,25 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         _payoutClaim(rentalId, c.counterAmount, true);
     }
 
-    /// @notice MVP escalation. Marks the claim disputed; `finalizeClaim` settles it on timeout.
-    ///         A staked juror pool is a nice-to-have and is not deployed here.
+    /// @notice Escalation never implies consent to a payout.
     function escalate(uint256 rentalId) external {
         Rental storage r = rentals[rentalId];
         if (msg.sender != r.owner && msg.sender != r.renter) revert NotParty();
         if (r.status != Status.Claimed) revert BadStatus();
         r.status = Status.Disputed;
-        claims[rentalId].filedAt = _logicalNow(meta[rentalId].bookedAtReal);
         emit Escalated(rentalId);
     }
 
-    /// @notice After the response window: silent renter loses, unanswered counter stands.
-    ///         Also settles a clean return once the 24h claim window has passed with no claim.
+    /// @notice Only an uncontested acknowledged return can settle automatically.
     function finalizeClaim(uint256 rentalId) external nonReentrant {
         Rental storage r = rentals[rentalId];
-        uint64 nowLogical = _logicalNow(meta[rentalId].bookedAtReal);
-
         if (r.status == Status.Returned) {
-            if (nowLogical < meta[rentalId].returnedAtLogical + CLAIM_WINDOW) revert WindowOpen();
-            _refundRemainder(rentalId);
-            r.status = Status.Settled;
-            _unlock(r.tokenId);
-            emit Settled(rentalId, 0);
+            if (block.timestamp < claimDeadline[rentalId]) revert WindowOpen();
+            _payoutClaim(rentalId, 0, true);
             return;
         }
-
-        if (r.status != Status.Claimed && r.status != Status.Disputed) revert BadStatus();
-        Claim storage c = claims[rentalId];
-        if (nowLogical < c.filedAt + RESPONSE_WINDOW) revert WindowOpen();
-
-        if (!c.responded) {
-            _payoutClaim(rentalId, r.claimAmount, true);
-        } else if (c.hasCounter) {
-            // A zero counter is a full rejection. The bond is paid to the renter.
-            _payoutClaim(rentalId, c.counterAmount, c.counterAmount > 0);
-        } else {
-            revert BadStatus();
-        }
+        if (r.status == Status.Claimed || r.status == Status.Disputed) revert ResolutionRequired();
+        revert BadStatus();
     }
 
     // ---------------------------------------------------------------------
@@ -438,6 +564,7 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         meta[rentalId].bookedAtReal = uint64(block.timestamp);
         meta[rentalId].depositRemaining = deposit;
         isLocked[tokenId] = true;
+        openRentalCount += 1;
         openRentalOf[tokenId] = rentalId;
 
         idr.safeTransferFrom(renter, address(this), total);
@@ -448,6 +575,9 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         Rental storage r = rentals[rentalId];
         if (msg.sender != r.owner) revert NotOwner();
         if (r.status != Status.Booked) revert BadStatus();
+        if (mediations[rentalId].proposed != address(0) && mediations[rentalId].mediator == address(0)) {
+            revert MediatorPending();
+        }
         if (photoOutHash == bytes32(0)) revert EmptyPhoto();
 
         uint64 nowLogical = _logicalNow(meta[rentalId].bookedAtReal);
@@ -475,14 +605,28 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         if (r.status == Status.Active && _logicalNow(meta[rentalId].bookedAtReal) > r.end) {
             r.status = Status.Late;
         }
-        if (r.status != Status.Active && r.status != Status.Late) revert BadStatus();
+        bool requested = r.status == Status.ReturnRequested || r.status == Status.ReturnDisputed;
+        if (r.status != Status.Active && r.status != Status.Late && !requested) revert BadStatus();
         if (photoInHash == bytes32(0)) revert EmptyPhoto();
 
-        if (!unilateral) {
-            _consumeSig(RETURN_TYPEHASH, rentalId, photoInHash, timestamp, r.owner, ownerSig);
+        if (unilateral) {
+            if (requested) revert BadStatus();
+            r.photoInHash = photoInHash;
+            r.status = Status.ReturnRequested;
+            returnRequests[rentalId].requestedAtLogical = _logicalNow(meta[rentalId].bookedAtReal);
+            emit ReturnRequested(rentalId, photoInHash);
+            return;
         }
+        _consumeSig(RETURN_TYPEHASH, rentalId, photoInHash, timestamp, r.owner, ownerSig);
+        _completeReturn(
+            rentalId,
+            photoInHash,
+            requested ? returnRequests[rentalId].requestedAtLogical : _logicalNow(meta[rentalId].bookedAtReal)
+        );
+    }
 
-        uint64 nowLogical = _logicalNow(meta[rentalId].bookedAtReal);
+    function _completeReturn(uint256 rentalId, bytes32 photoInHash, uint64 nowLogical) internal {
+        Rental storage r = rentals[rentalId];
         uint256 fee = lateFee(rentalId, nowLogical);
         uint256 remaining = r.deposit - fee;
 
@@ -491,15 +635,14 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         meta[rentalId].returnedAtLogical = nowLogical;
         meta[rentalId].depositRemaining = remaining;
         meta[rentalId].lateFeeCharged = fee;
+        claimDeadline[rentalId] = uint64(block.timestamp + CLAIM_WINDOW);
+        delete settlementOffers[rentalId];
 
         item.setUser(r.tokenId, address(0), 0);
 
         uint256 toOwner = r.rent + fee;
         if (toOwner > 0) idr.safeTransfer(r.owner, toOwner);
 
-        (uint256 value,,,) = item.terms(r.tokenId);
-        uint8 outcome = fee == 0 ? reputation.OUTCOME_OK() : reputation.OUTCOME_LATE();
-        reputation.record(r.renter, outcome, value, r.owner);
         emit Returned(rentalId, photoInHash, fee);
     }
 
@@ -507,14 +650,20 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         Rental storage r = rentals[rentalId];
         Claim storage c = claims[rentalId];
         uint256 remaining = meta[rentalId].depositRemaining;
-        if (amount > remaining) amount = remaining;
+        if (amount > remaining) revert BadAmount();
 
         uint256 rest = remaining - amount;
         uint256 bond = c.bond;
         meta[rentalId].depositRemaining = 0;
         c.bond = 0;
         r.status = Status.Settled;
+        delete settlementOffers[rentalId];
         _unlock(r.tokenId);
+        (uint256 value,,,) = item.terms(r.tokenId);
+        uint8 outcome = amount > 0
+            ? reputation.OUTCOME_DAMAGE()
+            : meta[rentalId].returnedAtLogical > r.end ? reputation.OUTCOME_LATE() : reputation.OUTCOME_OK();
+        reputation.record(r.renter, outcome, value, r.owner);
 
         if (amount > 0) idr.safeTransfer(r.owner, amount);
         if (rest > 0) idr.safeTransfer(r.renter, rest);
@@ -522,15 +671,25 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         emit Settled(rentalId, amount);
     }
 
-    function _refundRemainder(uint256 rentalId) internal {
-        uint256 remaining = meta[rentalId].depositRemaining;
-        meta[rentalId].depositRemaining = 0;
-        if (remaining > 0) idr.safeTransfer(rentals[rentalId].renter, remaining);
-    }
-
     function _unlock(uint256 tokenId) internal {
+        openRentalCount -= 1;
         isLocked[tokenId] = false;
         openRentalOf[tokenId] = 0;
+    }
+
+    function _requireMediator(uint256 rentalId) internal view {
+        if (msg.sender != mediations[rentalId].mediator || msg.sender == address(0)) revert NotMediator();
+    }
+
+    function _requireReturnRequest(Status status) internal pure {
+        if (status != Status.ReturnRequested && status != Status.ReturnDisputed) revert BadStatus();
+    }
+
+    function _requireNegotiable(Status status) internal pure {
+        if (
+            status != Status.ReturnRequested && status != Status.ReturnDisputed && status != Status.Claimed
+                && status != Status.Disputed
+        ) revert BadStatus();
     }
 
     function _consumeSig(
@@ -556,7 +715,11 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
         view
         returns (bytes32)
     {
-        bytes32 structHash = keccak256(abi.encode(typehash, rentalId, photoHash, timestamp, nonces[signer]));
+        bytes32 structHash = typehash == HANDOVER_TYPEHASH
+            ? keccak256(
+                abi.encode(typehash, rentalId, photoHash, timestamp, mediations[rentalId].mediator, nonces[signer])
+            )
+            : keccak256(abi.encode(typehash, rentalId, photoHash, timestamp, nonces[signer]));
         return _hashTypedDataV4(structHash);
     }
 

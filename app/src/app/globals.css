@@ -302,6 +302,7 @@ main {
 }
 .card {
   min-width: 0;
+  overflow-wrap: anywhere;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -524,6 +525,15 @@ textarea::placeholder {
 }
 input[type="file"] {
   font-size: 0.8rem;
+}
+input[type="checkbox"] {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0 8px 0 0;
+  vertical-align: middle;
+  accent-color: var(--teal);
 }
 input::file-selector-button {
   background: #e9eee2;

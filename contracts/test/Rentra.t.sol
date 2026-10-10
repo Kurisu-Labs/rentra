@@ -41,9 +41,58 @@ contract RentraTest is Test {
         escrow = new RentalEscrow(address(idr), address(item), address(reputation), false);
         item.setEscrow(address(escrow));
         reputation.setEscrow(address(escrow));
+        reputation.setOwnerApproval(owner, true);
 
         _fund(renter);
         _fund(owner);
+    }
+
+    function test_unsignedReturn_keepsFundsLockedAndNoReputation() public {
+        uint256 tokenId = _list(owner);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        uint256 id = _book(renter, tokenId, ts, ts + 1 days);
+        bytes memory sig = _signHandover(id, PHOTO_OUT, ts);
+        vm.prank(owner);
+        escrow.handover(id, PHOTO_OUT, ts, sig);
+        uint256 ownerBefore = idr.balanceOf(owner);
+        vm.prank(renter);
+        escrow.confirmReturn(id, PHOTO_IN, "");
+        assertEq(idr.balanceOf(owner), ownerBefore, "unsigned return must not pay rent");
+        assertEq(idr.balanceOf(address(escrow)), RATE + VALUE);
+        (, uint32 ok,,) = reputation.scoreOf(renter);
+        assertEq(ok, 0, "unsigned return must not earn reputation");
+        vm.warp(vm.getBlockTimestamp() + 2 days);
+        vm.expectRevert();
+        escrow.finalizeClaim(id);
+    }
+
+    function test_reputationWaitsForSettlement() public {
+        uint256 id = _returnedRental();
+        (, uint32 ok,,) = reputation.scoreOf(renter);
+        assertEq(ok, 0, "claim window must finish before reputation");
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        (, ok,,) = reputation.scoreOf(renter);
+        assertEq(ok, 1);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.finalizeClaim(id);
+    }
+
+    function test_unapprovedOwner_cannotEarnDiscount() public {
+        reputation.setOwnerApproval(owner, false);
+        uint256 id = _returnedRental();
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        assertEq(reputation.depositFactorBps(renter), 10_000, "unapproved owner must not grant discounts");
+        assertEq(reputation.maxSuccessfulValue(renter), 0);
+    }
+
+    function test_defaultListing_keepsFullDeposit() public {
+        vm.prank(address(escrow));
+        reputation.record(renter, 0, VALUE, owner);
+        vm.prank(owner);
+        uint256 tokenId = item.listItem("full collateral", VALUE, RATE, LATE, GRACE);
+        assertEq(escrow.quoteDeposit(tokenId, renter), VALUE, "default listing must retain full collateral");
     }
 
     function test_listQuoteAndBookCancel() public {
@@ -52,7 +101,7 @@ contract RentraTest is Test {
         assertEq(item.userOf(tokenId), address(0));
         assertTrue(item.supportsInterface(type(IERC4907).interfaceId));
 
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 2 days;
         assertEq(escrow.quoteRent(tokenId, start, start + 1 hours), RATE);
 
@@ -83,7 +132,7 @@ contract RentraTest is Test {
 
     function test_happyPath_thenReputationDiscount() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 2 days;
         uint256 id = _book(renter, tokenId, start, end);
 
@@ -101,7 +150,7 @@ contract RentraTest is Test {
         vm.warp(start);
 
         uint256 ownerBefore = idr.balanceOf(owner);
-        uint64 retTs = uint64(block.timestamp);
+        uint64 retTs = uint64(vm.getBlockTimestamp());
         bytes memory retSig = _signReturn(id, PHOTO_IN, retTs);
         vm.prank(renter);
         escrow.confirmReturn(id, PHOTO_IN, retTs, retSig);
@@ -111,21 +160,27 @@ contract RentraTest is Test {
         assertEq(item.userOf(tokenId), address(0));
 
         (uint16 score, uint32 ok, uint32 late, uint32 defaults) = reputation.scoreOf(renter);
-        assertEq(ok, 1);
+        assertEq(ok, 0);
         assertEq(late, 0);
         assertEq(defaults, 0);
-        assertEq(score, 100);
-        assertEq(reputation.depositFactorBps(renter), 9_000);
-        assertEq(reputation.maxSuccessfulValue(renter), VALUE);
+        assertEq(score, 0);
+        assertEq(reputation.depositFactorBps(renter), 10_000);
+        assertEq(reputation.maxSuccessfulValue(renter), 0);
 
-        vm.warp(block.timestamp + 24 hours - 1);
+        vm.warp(vm.getBlockTimestamp() + 24 hours - 1);
         vm.expectRevert(RentalEscrow.WindowOpen.selector);
         escrow.finalizeClaim(id);
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         escrow.finalizeClaim(id);
         assertEq(idr.balanceOf(renter), idr.FAUCET_AMOUNT() - RATE * 2);
         assertFalse(escrow.isLocked(tokenId));
+
+        (score, ok,,) = reputation.scoreOf(renter);
+        assertEq(ok, 1);
+        assertEq(score, 100);
+        assertEq(reputation.depositFactorBps(renter), 9_000);
+        assertEq(reputation.maxSuccessfulValue(renter), VALUE);
 
         uint256 token2 = _list(owner);
         // Same owner does not grant another discount step.
@@ -134,7 +189,7 @@ contract RentraTest is Test {
 
     function test_packedSignatureHandoverAndUnilateralReturn() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 1 days;
         uint256 id = _book(renter, tokenId, start, end);
 
@@ -146,14 +201,14 @@ contract RentraTest is Test {
         escrow.confirmReturn(id, PHOTO_IN, "");
 
         (uint16 score, uint32 ok,,) = reputation.scoreOf(renter);
-        assertEq(ok, 1);
-        assertEq(score, 100);
+        assertEq(ok, 0);
+        assertEq(score, 0);
         assertEq(escrow.lateFee(id, start), 0);
     }
 
     function test_lateFee_isCeiledAndCapped() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 1 days;
         uint256 id = _book(renter, tokenId, start, end);
 
@@ -172,7 +227,7 @@ contract RentraTest is Test {
         assertEq(uint256(status), uint256(RentalEscrow.Status.Late));
 
         uint256 ownerBefore = idr.balanceOf(owner);
-        uint64 ts = uint64(block.timestamp);
+        uint64 ts = uint64(vm.getBlockTimestamp());
         bytes memory retSig = _signReturn(id, PHOTO_IN, ts);
         vm.prank(renter);
         escrow.confirmReturn(id, PHOTO_IN, ts, retSig);
@@ -183,6 +238,10 @@ contract RentraTest is Test {
 
         (, uint32 ok, uint32 late,) = reputation.scoreOf(renter);
         assertEq(ok, 0);
+        assertEq(late, 0);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        (,, late,) = reputation.scoreOf(renter);
         assertEq(late, 1);
         assertEq(reputation.depositFactorBps(renter), 10_000);
     }
@@ -190,7 +249,7 @@ contract RentraTest is Test {
     function test_lateFeeCapsAtDeposit() public {
         vm.prank(owner);
         uint256 tokenId = item.listItem("ipfs://x", VALUE, RATE, VALUE, GRACE);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 1 days;
         uint256 id = _book(renter, tokenId, start, end);
         assertEq(escrow.lateFee(id, end + 2 hours), VALUE);
@@ -198,7 +257,7 @@ contract RentraTest is Test {
 
     function test_claimDefault_afterGrace_isPermanent() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 1 days;
         uint256 id = _book(renter, tokenId, start, end);
         bytes memory sig = _signHandover(id, PHOTO_OUT, start);
@@ -224,7 +283,7 @@ contract RentraTest is Test {
 
         // A later clean rental does not restore the discount.
         uint256 token2 = _listOther("owner-2");
-        uint64 start2 = uint64(block.timestamp);
+        uint64 start2 = uint64(vm.getBlockTimestamp());
         uint256 id2 = _book(renter, token2, start2, start2 + 1 days);
         _activateAndReturn(id2, token2);
         assertEq(reputation.depositFactorBps(renter), 10_000);
@@ -267,24 +326,26 @@ contract RentraTest is Test {
         assertEq(idr.balanceOf(owner) - ownerBefore, counter + amount / 10);
     }
 
-    function test_damageClaim_silentRenter_ownerWins() public {
+    function test_damageClaim_silentRenter_keepsFundsLocked() public {
         uint256 id = _returnedRental();
         uint256 amount = 500_000 ether;
         vm.prank(owner);
         escrow.fileDamageClaim(id, amount, keccak256("crack"));
 
-        vm.warp(block.timestamp + 24 hours - 1);
-        vm.expectRevert(RentalEscrow.WindowOpen.selector);
+        vm.warp(vm.getBlockTimestamp() + 24 hours - 1);
+        vm.expectRevert(RentalEscrow.ResolutionRequired.selector);
         escrow.finalizeClaim(id);
 
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         uint256 ownerBefore = idr.balanceOf(owner);
+        vm.expectRevert(RentalEscrow.ResolutionRequired.selector);
         escrow.finalizeClaim(id);
-        assertEq(idr.balanceOf(owner) - ownerBefore, amount + amount / 10);
+        assertEq(idr.balanceOf(owner), ownerBefore);
+        assertEq(idr.balanceOf(address(escrow)), VALUE + amount / 10);
     }
 
     function test_damageClaim_rejectedCounter_bondSlashed() public {
-        uint256 id = _returnedRental();
+        (uint256 id, address mediator) = _returnedWithMediator();
         uint256 amount = 800_000 ether;
         uint256 bond = amount / 10;
 
@@ -293,16 +354,17 @@ contract RentraTest is Test {
         vm.prank(renter);
         escrow.respondClaim(id, false, 0);
 
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         uint256 renterBefore = idr.balanceOf(renter);
         uint256 ownerBefore = idr.balanceOf(owner);
-        escrow.finalizeClaim(id);
+        vm.prank(mediator);
+        escrow.resolveClaim(id, 0, false);
 
         assertEq(idr.balanceOf(renter) - renterBefore, VALUE + bond);
         assertEq(idr.balanceOf(owner), ownerBefore);
     }
 
-    function test_escalate_thenTimeoutFavorsSilentClaim() public {
+    function test_escalate_neverPaysOnSilence() public {
         uint256 id = _returnedRental();
         uint256 amount = 200_000 ether;
         vm.prank(owner);
@@ -313,15 +375,16 @@ contract RentraTest is Test {
         (,,,,,,,,,, RentalEscrow.Status status,) = escrow.rentals(id);
         assertEq(uint256(status), uint256(RentalEscrow.Status.Disputed));
 
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        vm.expectRevert(RentalEscrow.ResolutionRequired.selector);
         escrow.finalizeClaim(id);
         (,,,,,,,,,, status,) = escrow.rentals(id);
-        assertEq(uint256(status), uint256(RentalEscrow.Status.Settled));
+        assertEq(uint256(status), uint256(RentalEscrow.Status.Disputed));
     }
 
     function test_claimWindow_closes() public {
         uint256 id = _returnedRental();
-        vm.warp(block.timestamp + 24 hours + 1);
+        vm.warp(vm.getBlockTimestamp() + 24 hours + 1);
         vm.prank(owner);
         vm.expectRevert(RentalEscrow.WindowClosed.selector);
         escrow.fileDamageClaim(id, 1000 ether, keccak256("late"));
@@ -329,7 +392,7 @@ contract RentraTest is Test {
 
     function test_signatureReplayAndExpiry() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint256 id = _book(renter, tokenId, start, start + 2 days);
         bytes memory sig = _signHandover(id, PHOTO_OUT, start);
 
@@ -355,7 +418,7 @@ contract RentraTest is Test {
 
     function test_accessAndAvailability() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
 
         vm.prank(owner);
         vm.expectRevert(RentalEscrow.CannotRentOwn.selector);
@@ -391,18 +454,18 @@ contract RentraTest is Test {
 
     function test_handoverTooEarly() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp + 1 days);
+        uint64 start = uint64(vm.getBlockTimestamp() + 1 days);
         uint64 end = start + 1 days;
         uint256 id = _book(renter, tokenId, start, end);
 
-        uint64 nowTs = uint64(block.timestamp);
+        uint64 nowTs = uint64(vm.getBlockTimestamp());
         bytes memory tooEarlySig = _signHandover(id, PHOTO_OUT, nowTs);
         vm.prank(owner);
         vm.expectRevert(RentalEscrow.TooEarly.selector);
         escrow.handover(id, PHOTO_OUT, nowTs, tooEarlySig);
 
         vm.warp(start);
-        uint64 atStart = uint64(block.timestamp);
+        uint64 atStart = uint64(vm.getBlockTimestamp());
         bytes memory onTimeSig = _signHandover(id, PHOTO_OUT, atStart);
         vm.prank(owner);
         escrow.handover(id, PHOTO_OUT, atStart, onTimeSig);
@@ -411,14 +474,14 @@ contract RentraTest is Test {
 
     function test_bookWithPermit() public {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 1 days;
 
         vm.prank(renter);
         idr.approve(address(escrow), 0);
 
         uint256 value = RATE + VALUE;
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 deadline = vm.getBlockTimestamp() + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -441,6 +504,7 @@ contract RentraTest is Test {
         address a = makeAddr("a");
         address lowOwner = makeAddr("low");
         address rich = makeAddr("rich");
+        rep.setOwnerApproval(rich, true);
 
         rep.record(a, rep.OUTCOME_OK(), 100_000 ether, lowOwner);
         assertEq(rep.depositFactorBps(a), 10_000);
@@ -459,10 +523,11 @@ contract RentraTest is Test {
         // 3-arg form records the outcome but grants no owner credit.
         rep.record(a, rep.OUTCOME_OK(), 3_000_000 ether);
         assertEq(rep.uniqueOwnersOf(a), 1);
-        assertEq(rep.maxSuccessfulValue(a), 3_000_000 ether);
+        assertEq(rep.maxSuccessfulValue(a), 600_000 ether);
 
         address farmer = makeAddr("farmer");
         for (uint256 i = 0; i < 8; i++) {
+            rep.setOwnerApproval(address(uint160(0x1000 + i)), true);
             rep.record(farmer, rep.OUTCOME_OK(), 1_000_000 ether, address(uint160(0x1000 + i)));
         }
         assertEq(rep.depositFactorBps(farmer), 3_000);
@@ -492,9 +557,11 @@ contract RentraTest is Test {
         uint256 cheapId;
         vm.prank(owner);
         cheapId = item.listItem("ipfs://cheap", 600_000 ether, RATE, LATE, GRACE);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint256 id = _book(renter, cheapId, start, start + 1 days);
         _activateAndReturn(id, cheapId);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
 
         uint256 expensive = _list(owner);
         uint256 expected = (600_000 ether * 9_000) / 10_000 + (VALUE - 600_000 ether);
@@ -506,10 +573,11 @@ contract RentraTest is Test {
         idr.faucet();
         for (uint256 i = 0; i < 5; i++) {
             uint256 listed = _listOther(string.concat("owner-", vm.toString(i)));
-            uint64 start = uint64(block.timestamp);
+            uint64 start = uint64(vm.getBlockTimestamp());
             uint256 id = _book(renter, listed, start, start + 1 days);
             _activateAndReturn(id, listed);
-            vm.warp(block.timestamp + 1);
+            vm.warp(vm.getBlockTimestamp() + 24 hours);
+            escrow.finalizeClaim(id);
         }
         assertEq(reputation.depositFactorBps(renter), 5_000);
         uint256 tokenId = _list(owner);
@@ -527,6 +595,328 @@ contract RentraTest is Test {
         item.listItem("ipfs://nope", 0, RATE, LATE, GRACE);
     }
 
+    function test_ownerAcknowledgement_usesRequestTimeAndStartsRealWindow() public {
+        (uint256 id, uint256 tokenId) = _requestedRental(false);
+        uint256 ownerBefore = idr.balanceOf(owner);
+        uint64 requestTime = uint64(vm.getBlockTimestamp());
+        vm.warp(vm.getBlockTimestamp() + 3 days);
+        vm.prank(owner);
+        escrow.acknowledgeReturn(id);
+        assertEq(idr.balanceOf(owner) - ownerBefore, RATE);
+        (, uint64 returnedAt,, uint256 fee) = escrow.meta(id);
+        assertEq(returnedAt, requestTime);
+        assertEq(fee, 0);
+        assertEq(escrow.claimDeadline(id), vm.getBlockTimestamp() + 24 hours);
+        assertTrue(escrow.isLocked(tokenId));
+        vm.expectRevert(RentalEscrow.WindowOpen.selector);
+        escrow.finalizeClaim(id);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        assertFalse(escrow.isLocked(tokenId));
+    }
+
+    function test_returnRequest_cannotRepeatOrDefaultOrSelfSettle() public {
+        (uint256 id,) = _requestedRental(false);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.confirmReturn(id, PHOTO_IN, "");
+        vm.warp(vm.getBlockTimestamp() + 3 days);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.claimDefault(id);
+        vm.prank(renter);
+        escrow.proposeSettlement(id, 0);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.StaleOffer.selector);
+        escrow.acceptSettlement(id, renter, 0);
+        assertEq(idr.balanceOf(address(escrow)), RATE + VALUE);
+    }
+
+    function test_returnDispute_needsPartyEvidence() public {
+        (uint256 id,) = _requestedRental(false);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.NotOwner.selector);
+        escrow.acknowledgeReturn(id);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.NotOwner.selector);
+        escrow.disputeReturn(id, PHOTO_OUT);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.EmptyPhoto.selector);
+        escrow.disputeReturn(id, bytes32(0));
+        vm.prank(owner);
+        escrow.disputeReturn(id, PHOTO_OUT);
+        (, bytes32 evidence) = escrow.returnRequests(id);
+        assertEq(evidence, PHOTO_OUT);
+        vm.expectRevert(RentalEscrow.NotMediator.selector);
+        escrow.resolveReturn(id, true, 0);
+        vm.prank(owner);
+        escrow.acknowledgeReturn(id);
+        assertEq(escrow.claimDeadline(id), vm.getBlockTimestamp() + 24 hours);
+    }
+
+    function test_mediatorRequiresConsentAndIsFrozen() public {
+        uint256 tokenId = _list(owner);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        uint256 id = _book(renter, tokenId, ts, ts + 1 days);
+        address mediator = makeAddr("mediator");
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.NotOwner.selector);
+        escrow.proposeMediator(id, mediator);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.NotParty.selector);
+        escrow.proposeMediator(id, renter);
+        vm.prank(owner);
+        escrow.proposeMediator(id, mediator);
+        bytes memory sig = _signHandover(id, PHOTO_OUT, ts);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.MediatorPending.selector);
+        escrow.handover(id, PHOTO_OUT, ts, sig);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.NotRenter.selector);
+        escrow.acceptMediator(id, mediator);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.StaleOffer.selector);
+        escrow.acceptMediator(id, address(123));
+        vm.prank(renter);
+        escrow.acceptMediator(id, mediator);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.MediatorFrozen.selector);
+        escrow.proposeMediator(id, address(123));
+        // A signature made before agreeing a mediator cannot authorize different terms.
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.BadSignature.selector);
+        escrow.handover(id, PHOTO_OUT, ts, sig);
+        sig = _signHandover(id, PHOTO_OUT, ts);
+        vm.prank(owner);
+        escrow.handover(id, PHOTO_OUT, ts, sig);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.proposeMediator(id, address(123));
+    }
+
+    function test_mediatorReturnRuling_capsCompensationAndRecordsDamage() public {
+        (uint256 id, uint256 tokenId) = _requestedRental(true);
+        address mediator = makeAddr("mediator");
+        vm.prank(mediator);
+        vm.expectRevert(RentalEscrow.BadAmount.selector);
+        escrow.resolveReturn(id, true, VALUE + 1);
+        uint256 ownerBefore = idr.balanceOf(owner);
+        uint256 renterBefore = idr.balanceOf(renter);
+        vm.prank(mediator);
+        escrow.resolveReturn(id, true, 500_000 ether);
+        assertEq(idr.balanceOf(owner) - ownerBefore, RATE + 500_000 ether);
+        assertEq(idr.balanceOf(renter) - renterBefore, 2_500_000 ether);
+        assertEq(idr.balanceOf(address(escrow)), 0);
+        assertEq(reputation.damagesOf(renter), 1);
+        assertEq(reputation.depositFactorBps(renter), 10_000);
+        assertFalse(escrow.isLocked(tokenId));
+        vm.prank(mediator);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.resolveReturn(id, true, 0);
+    }
+
+    function test_mediatorNonReturn_onlyAfterGrace() public {
+        (uint256 id,) = _requestedRental(true);
+        address mediator = makeAddr("mediator");
+        vm.prank(owner);
+        escrow.disputeReturn(id, PHOTO_OUT);
+        vm.prank(mediator);
+        vm.expectRevert(RentalEscrow.GraceNotOver.selector);
+        escrow.resolveReturn(id, false, 0);
+        vm.warp(vm.getBlockTimestamp() + 2 days);
+        vm.prank(mediator);
+        vm.expectRevert(RentalEscrow.BadAmount.selector);
+        escrow.resolveReturn(id, false, 1);
+        uint256 before = idr.balanceOf(owner);
+        vm.prank(mediator);
+        escrow.resolveReturn(id, false, 0);
+        assertEq(idr.balanceOf(owner) - before, RATE + VALUE);
+        assertEq(idr.balanceOf(address(escrow)), 0);
+        assertTrue(reputation.hasDefaulted(renter));
+        assertEq(escrow.openRentalCount(), 0);
+    }
+
+    function test_signedReturn_canResolvePendingRequest() public {
+        (uint256 id,) = _requestedRental(false);
+        vm.prank(owner);
+        escrow.disputeReturn(id, PHOTO_OUT);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        bytes memory sig = _signReturn(id, PHOTO_IN, ts);
+        vm.prank(renter);
+        escrow.confirmReturn(id, PHOTO_IN, ts, sig);
+        assertEq(escrow.claimDeadline(id), vm.getBlockTimestamp() + 24 hours);
+    }
+
+    function test_settlementOffers_requireExactCounterpartyAcceptance() public {
+        (uint256 id,) = _requestedRental(false);
+        vm.prank(renter);
+        escrow.proposeSettlement(id, 0);
+        vm.prank(owner);
+        escrow.proposeSettlement(id, 100_000 ether);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.StaleOffer.selector);
+        escrow.acceptSettlement(id, renter, 0);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.StaleOffer.selector);
+        escrow.acceptSettlement(id, owner, 0);
+        vm.prank(renter);
+        escrow.acceptSettlement(id, owner, 100_000 ether);
+        assertEq(reputation.damagesOf(renter), 1);
+        assertEq(idr.balanceOf(address(escrow)), 0);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.proposeSettlement(id, 0);
+    }
+
+    function test_claimRuling_isBoundedAndCannotBeCalledByAdmin() public {
+        (uint256 id, address mediator) = _returnedWithMediator();
+        vm.prank(owner);
+        escrow.fileDamageClaim(id, 200_000 ether, PHOTO_OUT);
+        vm.expectRevert(RentalEscrow.NotMediator.selector);
+        escrow.resolveClaim(id, 0, false);
+        vm.prank(mediator);
+        vm.expectRevert(RentalEscrow.BadAmount.selector);
+        escrow.resolveClaim(id, 200_000 ether + 1, true);
+        vm.prank(mediator);
+        escrow.resolveClaim(id, 100_000 ether, true);
+        assertEq(reputation.damagesOf(renter), 1);
+        assertEq(idr.balanceOf(address(escrow)), 0);
+    }
+
+    function test_claimSettlementCounter_doesNotKeepStaleOffer() public {
+        uint256 id = _returnedRental();
+        vm.prank(owner);
+        escrow.fileDamageClaim(id, 200_000 ether, PHOTO_OUT);
+        vm.prank(owner);
+        escrow.proposeSettlement(id, 100_000 ether);
+        vm.prank(renter);
+        escrow.respondClaim(id, false, 0);
+        vm.prank(renter);
+        vm.expectRevert(RentalEscrow.StaleOffer.selector);
+        escrow.acceptSettlement(id, owner, 100_000 ether);
+        vm.prank(renter);
+        escrow.proposeSettlement(id, 0);
+        vm.prank(owner);
+        escrow.acceptSettlement(id, renter, 0);
+        (, uint32 ok,,) = reputation.scoreOf(renter);
+        assertEq(ok, 1);
+    }
+
+    function test_newSettlementOffer_invalidatesOldClaimCounter() public {
+        uint256 id = _returnedRental();
+        vm.prank(owner);
+        escrow.fileDamageClaim(id, 200_000 ether, PHOTO_OUT);
+        vm.prank(renter);
+        escrow.respondClaim(id, false, 50_000 ether);
+        vm.prank(renter);
+        escrow.proposeSettlement(id, 100_000 ether);
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.BadStatus.selector);
+        escrow.acceptCounter(id);
+        vm.prank(owner);
+        escrow.acceptSettlement(id, renter, 100_000 ether);
+        assertEq(idr.balanceOf(address(escrow)), 0);
+    }
+
+    function test_zeroLateFee_doesNotEarnOnTimeDiscount() public {
+        vm.prank(owner);
+        uint256 tokenId = item.listItem("no late charge", VALUE, RATE, 0, GRACE, 3_000);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        uint256 id = _book(renter, tokenId, ts, ts + 1 days);
+        bytes memory sig = _signHandover(id, PHOTO_OUT, ts);
+        vm.prank(owner);
+        escrow.handover(id, PHOTO_OUT, ts, sig);
+        vm.warp(vm.getBlockTimestamp() + 1 days + 1);
+        ts = uint64(vm.getBlockTimestamp());
+        sig = _signReturn(id, PHOTO_IN, ts);
+        vm.prank(renter);
+        escrow.confirmReturn(id, PHOTO_IN, ts, sig);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        assertEq(reputation.depositFactorBps(renter), 10_000, "late with zero charge is still late");
+        (, uint32 ok, uint32 late,) = reputation.scoreOf(renter);
+        assertEq(ok, 0);
+        assertEq(late, 1);
+    }
+
+    function test_claimDeadline_exactBoundaryClosesClaim() public {
+        uint256 id = _returnedRental();
+        vm.warp(escrow.claimDeadline(id));
+        vm.prank(owner);
+        vm.expectRevert(RentalEscrow.WindowClosed.selector);
+        escrow.fileDamageClaim(id, 1 ether, PHOTO_OUT);
+        escrow.finalizeClaim(id);
+    }
+
+    function test_clockCannotChangeUntilAllRentalsClose() public {
+        uint256 tokenId = _list(owner);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        uint256 id = _book(renter, tokenId, ts, ts + 1 days);
+        vm.expectRevert(RentalEscrow.OpenRentals.selector);
+        escrow.setDemoMode(true);
+        vm.prank(renter);
+        escrow.cancel(id);
+        assertEq(escrow.openRentalCount(), 0);
+        escrow.setDemoMode(true);
+        assertTrue(escrow.demoMode());
+    }
+
+    function test_listingFloor_invalidAndHonored() public {
+        vm.prank(owner);
+        vm.expectRevert(RentalItem.InvalidTerms.selector);
+        item.listItem("invalid", VALUE, RATE, LATE, GRACE, 2_999);
+        vm.prank(owner);
+        vm.expectRevert(RentalItem.InvalidTerms.selector);
+        item.listItem("invalid", VALUE, RATE, LATE, GRACE, 10_001);
+        vm.prank(address(escrow));
+        reputation.record(renter, 0, VALUE, owner);
+        vm.prank(owner);
+        uint256 tokenId = item.listItem("floor", VALUE, RATE, LATE, GRACE, 9_500);
+        assertEq(escrow.quoteDeposit(tokenId, renter), 2_850_000 ether);
+    }
+
+    function test_ownerApproval_isRestrictedAndRevocable() public {
+        vm.prank(renter);
+        vm.expectRevert(Reputation.NotAdmin.selector);
+        reputation.setOwnerApproval(renter, true);
+        vm.expectRevert(Reputation.ZeroAddress.selector);
+        reputation.setOwnerApproval(address(0), true);
+        reputation.setOwnerApproval(owner, false);
+        vm.prank(address(escrow));
+        reputation.record(renter, 0, VALUE, owner);
+        assertEq(reputation.maxSuccessfulValue(renter), 0);
+        assertEq(reputation.uniqueOwnersOf(renter), 0);
+    }
+
+    function testFuzz_settlementCannotSpendAnotherRental(uint96 rawAmount) public {
+        (uint256 id,) = _requestedRental(false);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        uint256 otherId = _book(renter, _list(owner), ts, ts + 1 days);
+        uint256 amount = bound(uint256(rawAmount), 0, VALUE);
+        vm.prank(owner);
+        escrow.proposeSettlement(id, amount);
+        vm.prank(renter);
+        escrow.acceptSettlement(id, owner, amount);
+        assertEq(idr.balanceOf(address(escrow)), RATE + VALUE);
+        assertEq(escrow.openRentalCount(), 1);
+        vm.prank(renter);
+        escrow.cancel(otherId);
+        assertEq(idr.balanceOf(address(escrow)), 0);
+        assertEq(escrow.openRentalCount(), 0);
+    }
+
+    function _requestedRental(bool withMediator) internal returns (uint256 id, uint256 tokenId) {
+        tokenId = _list(owner);
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        id = _book(renter, tokenId, ts, ts + 1 days);
+        if (withMediator) _agreeMediator(id, makeAddr("mediator"));
+        bytes memory sig = _signHandover(id, PHOTO_OUT, ts);
+        vm.prank(owner);
+        escrow.handover(id, PHOTO_OUT, ts, sig);
+        vm.prank(renter);
+        escrow.confirmReturn(id, PHOTO_IN, "");
+    }
+
     function _fund(address who) internal {
         vm.prank(who);
         idr.faucet();
@@ -536,13 +926,14 @@ contract RentraTest is Test {
 
     function _list(address who) internal returns (uint256 tokenId) {
         vm.prank(who);
-        tokenId = item.listItem("ipfs://kamera", VALUE, RATE, LATE, GRACE);
+        tokenId = item.listItem("ipfs://kamera", VALUE, RATE, LATE, GRACE, 3_000);
     }
 
     function _listOther(string memory name) internal returns (uint256 tokenId) {
         (address who, uint256 pk) = makeAddrAndKey(name);
         _keys[who] = pk;
         _fund(who);
+        reputation.setOwnerApproval(who, true);
         tokenId = _list(who);
     }
 
@@ -566,14 +957,30 @@ contract RentraTest is Test {
 
     function _returnedRental() internal returns (uint256 id) {
         uint256 tokenId = _list(owner);
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         id = _book(renter, tokenId, start, start + 1 days);
         _activateAndReturn(id, tokenId);
     }
 
+    function _returnedWithMediator() internal returns (uint256 id, address mediator) {
+        uint256 tokenId = _list(owner);
+        uint64 start = uint64(vm.getBlockTimestamp());
+        id = _book(renter, tokenId, start, start + 1 days);
+        mediator = makeAddr("mediator");
+        _agreeMediator(id, mediator);
+        _activateAndReturn(id, tokenId);
+    }
+
+    function _agreeMediator(uint256 id, address mediator) internal {
+        vm.prank(owner);
+        escrow.proposeMediator(id, mediator);
+        vm.prank(renter);
+        escrow.acceptMediator(id, mediator);
+    }
+
     function _activateAndReturn(uint256 id, uint256 tokenId) internal {
         address itemOwner = item.ownerOf(tokenId);
-        uint64 ts = uint64(block.timestamp);
+        uint64 ts = uint64(vm.getBlockTimestamp());
         bytes memory handoverSig = _signHandover(id, PHOTO_OUT, ts);
         vm.prank(itemOwner);
         escrow.handover(id, PHOTO_OUT, ts, handoverSig);
@@ -602,7 +1009,11 @@ contract RentraTest is Test {
         (tokenId,,,,,,,,,,,) = escrow.rentals(id);
     }
 
-    function _meta(uint256 id) internal view returns (uint64 bookedAt, uint256 depositRemaining, uint64 returnedAt, uint256 fee) {
+    function _meta(uint256 id)
+        internal
+        view
+        returns (uint64 bookedAt, uint256 depositRemaining, uint64 returnedAt, uint256 fee)
+    {
         (bookedAt, returnedAt, depositRemaining, fee) = escrow.meta(id);
     }
 }
@@ -640,7 +1051,7 @@ contract DemoModeTest is Test {
 
     function test_demoMode_oneDayIsTwoMinutes() public {
         uint256 tokenId = _list();
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint64 end = start + 1 days;
         uint256 id = _book(tokenId, start, end);
         _handover(id, start);
@@ -657,15 +1068,33 @@ contract DemoModeTest is Test {
         assertEq(item.userOf(tokenId), address(0));
         assertEq(escrow.lateFee(id, escrow.logicalNow(id)), 1_000 ether);
 
-        _return(id, uint64(block.timestamp));
+        _return(id, uint64(vm.getBlockTimestamp()));
         (, uint32 ok, uint32 late,) = reputation.scoreOf(renter);
-        assertEq(late, 1);
+        assertEq(late, 0);
         assertEq(ok, 0);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        (,, late,) = reputation.scoreOf(renter);
+        assertEq(late, 1);
+    }
+
+    function test_demoMode_claimWindowUsesRealTime() public {
+        uint256 tokenId = _list();
+        uint64 ts = uint64(vm.getBlockTimestamp());
+        uint256 id = _book(tokenId, ts, ts + 1 days);
+        _handover(id, ts);
+        _return(id, ts);
+        vm.warp(vm.getBlockTimestamp() + 120);
+        vm.expectRevert(RentalEscrow.WindowOpen.selector);
+        escrow.finalizeClaim(id);
+        vm.prank(owner);
+        escrow.fileDamageClaim(id, 1 ether, keccak256("damage"));
+        assertEq(escrow.responseDeadline(id), vm.getBlockTimestamp() + 24 hours);
     }
 
     function test_demoMode_defaultAfterScaledGrace() public {
         uint256 tokenId = _list();
-        uint64 start = uint64(block.timestamp);
+        uint64 start = uint64(vm.getBlockTimestamp());
         uint256 id = _book(tokenId, start, start + 1 days);
         _handover(id, start);
 

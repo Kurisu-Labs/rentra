@@ -1,0 +1,98 @@
+[
+  {
+    "route": "/",
+    "requestedCssWidth": 375,
+    "documentWidth": 360,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 375
+  },
+  {
+    "route": "/my",
+    "requestedCssWidth": 375,
+    "documentWidth": 360,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 375
+  },
+  {
+    "route": "/list",
+    "requestedCssWidth": 375,
+    "documentWidth": 360,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 375
+  },
+  {
+    "route": "/reputation",
+    "requestedCssWidth": 375,
+    "documentWidth": 360,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 375
+  },
+  {
+    "route": "/",
+    "requestedCssWidth": 768,
+    "documentWidth": 753,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 768
+  },
+  {
+    "route": "/my",
+    "requestedCssWidth": 768,
+    "documentWidth": 753,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 768
+  },
+  {
+    "route": "/list",
+    "requestedCssWidth": 768,
+    "documentWidth": 753,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 768
+  },
+  {
+    "route": "/reputation",
+    "requestedCssWidth": 768,
+    "documentWidth": 753,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 768
+  },
+  {
+    "route": "/",
+    "requestedCssWidth": 1440,
+    "documentWidth": 1425,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 1440
+  },
+  {
+    "route": "/my",
+    "requestedCssWidth": 1440,
+    "documentWidth": 1425,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 1440
+  },
+  {
+    "route": "/list",
+    "requestedCssWidth": 1440,
+    "documentWidth": 1425,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 1440
+  },
+  {
+    "route": "/reputation",
+    "requestedCssWidth": 1440,
+    "documentWidth": 1425,
+    "h1Count": 1,
+    "mainCount": 1,
+    "width": 1440
+  }
+]

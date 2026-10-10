@@ -1,11 +1,13 @@
 {
   "chainId": 11155111,
-  "demoMode": true,
-  "deployer": "0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf",
+  "protocolVersion": 2,
+  "demoMode": false,
+  "deployer": "0xadf00a2476c77163B607af6E55A6a90185ae33f6",
   "contracts": {
-    "MockIDR": "0x3740Bf82073E6889298631E8B4dC72b5358b6a39",
-    "RentalItem": "0x229918cCE2f140d40EE4A4187b62A5F4bc5Dd67c",
-    "Reputation": "0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7",
-    "RentalEscrow": "0x888d7200C2fC016a8Adde7328092B40BB14C5cab"
-  }
+    "MockIDR": "0x5f1540ad73433d80e510efa8dac04d2acbfa8f24",
+    "RentalItem": "0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525",
+    "Reputation": "0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a",
+    "RentalEscrow": "0x9be48b39d3fa6cbf929141a247d9302495d17a73"
+  },
+  "verifiedAtBlock": "11882500"
 }
