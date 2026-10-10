@@ -6,13 +6,19 @@ Rentra is an ETHJakarta 2026 hackathon project (RWA track). It is a peer-to-peer
 
 Full product notes, in Indonesian, are in [docs/PLAN.md](docs/PLAN.md).
 
+## Safety v2: local code versus deployed contracts
+
+The local source implements protocol **v2**. The committed Sepolia addresses below are the historical **v1** deployment and have **not** been replaced or upgraded by these changes. The updated app is read-only against an unrecognized version or mismatched contract references; it checks again before requesting signatures or transactions. A new deployment of all four contracts is required to use v2. Existing v1 rentals and reputation remain on their original contracts; no migration is implemented.
+
+See [docs/RENTAL-SAFETY.md](docs/RENTAL-SAFETY.md) for the trust model and limitations. The following behavior describes **v2 source**, not the historical deployment.
+
 ## Why this is onchain
 
 - The deposit sits in the contract, not in the owner's account and not on a platform the operator can freeze.
 - Late fees, default after the grace period, and damage-claim settlement execute from those rules.
 - ERC-4907 gives the renter a usage right that expires by itself (`userOf` returns zero after `userExpires`).
 - Reputation belongs to the renter's account and can be read by any rental using this contract, without sharing a national ID number.
-- Handover and return record a keccak256 photo hash plus both parties' EIP-712 signatures. The hash proves the file existed at that moment. It does not prove the photo is authentic or unedited.
+- Acknowledged handover and return record a keccak256 photo hash and wallet authorization. A hash commits to bytes; it does not prove that a photo is authentic, that a physical exchange happened, or that the original file remains available. Unsigned returns are pending requests.
 
 ## Architecture
 
@@ -29,50 +35,51 @@ Chain: Ethereum Sepolia (chain id 11155111). There is no admin function that can
 
 ### Deposit and reputation
 
-`listItem` does not take a separate deposit. The base deposit is the item's declared value. `quoteDeposit` then applies `depositFactorBps`:
+The base deposit is the owner's declared replacement value, without independent appraisal. The six-argument `listItem` adds an immutable minimum deposit factor (30–100%); the five-argument form defaults to **100%**. Owners explicitly accept uncovered exposure when allowing a lower floor. `quoteDeposit` applies the greater of the renter factor and the listing floor to eligible value:
 
 | History | Deposit factor |
 |---|---|
 | New account | 100% |
-| Each successful rental from a new owner, value ≥ Rp500.000 | −10 percentage points |
+| Each settled, clean, on-time rental from a new manually approved owner, value ≥ Rp500.000 | −10 percentage points |
 | Floor | 30% (seven qualifying owners) |
 | Five qualifying owners | 50% (the demo script) |
 | Any default | Locked at 100% permanently |
 
-The discount only covers value up to the highest amount that account has successfully rented. A cheap rental cannot unlock a full discount on an expensive item. Rentals under Rp500.000 are recorded but do not reduce the factor. Late returns do not earn a discount. Repeating the same owner does not earn another step.
+The discount only covers value up to the highest qualifying successfully rented amount. Unapproved owners cannot grant a discount or raise this cap. Rentals under Rp500.000, late returns, and settlements with damage compensation do not earn discounts. Repeating an owner does not earn another step. Reputation is recorded once at final settlement, not when a return is requested or acknowledged. Manual approval is a pilot trust decision, not proof of unique identity; approved owners can still collude. No insurance or funded guarantor covers a discounted deposit's shortfall.
 
 ### Rental flow
 
 1. Owner lists an item (value, daily rate, hourly late fee, grace period).
 2. Renter `book`s a window. Rent (rounded up to whole days) and the quoted deposit are pulled with `transferFrom`, or in one transaction via `bookWithPermit`.
-3. In person, the owner photographs the item. The renter signs `Handover(rentalId, photoHash, timestamp, nonce)`. The owner submits `handover`, which calls `setUser(tokenId, renter, expires)`.
-4. On return, the owner signs `Return(...)` and the renter submits `confirmReturn`. Rent plus any late fee goes to the owner immediately. The remaining deposit is held for 24 hours.
-5. If the owner will not sign, the renter can `confirmReturn` with an empty signature. The claim window still opens.
+3. Before pickup, the owner may `proposeMediator`; the renter must explicitly `acceptMediator`. Both may cancel and obtain a full refund before handover. A pending proposal blocks handover; an accepted mediator is immutable. In person, the renter signs `Handover(rentalId, photoHash, timestamp, mediator, nonce)` using EIP-712 domain version `2`. The owner submits `handover`, activating the usage right. The signature binds the agreed mediator.
+4. On return, the owner signs `Return(...)` and the renter submits `confirmReturn`. Rent plus late fees goes to the owner. The deposit remains held for a **24-hour real-time** claim window, including in demo mode.
+5. An empty signature creates `ReturnRequested`, paying nothing and earning no reputation. The owner can `acknowledgeReturn` or `disputeReturn` with an evidence hash. Acknowledgement uses the request's onchain time for late fees and starts the claim window at acknowledgement. An agreed mediator may resolve the request, or both parties may accept an exact settlement offer. A disputed non-return ruling must wait until end plus grace.
 6. Late fee is the hourly rate times hours late, rounded up, capped at the deposit.
 7. If the item is not returned, the owner calls `claimDefault` after `end + grace`. Rent, deposit, and any guarantee move to the owner and the renter is marked defaulted.
-8. Damage claims use a 10% bond. The renter accepts or counters. Silence settles for the party who did respond. `escalate` marks the claim disputed; with no juror pool, `finalizeClaim` applies the same timeout.
+8. Damage claims use a 10% bond. The renter can accept or counter within 24 real hours. The owner can accept the counter. Either party may propose a compensation amount and the other must explicitly accept that exact offer. `escalate` only marks the dispute. The agreed mediator can split this rental's remaining deposit and bond between its two parties; damage compensation cannot exceed the claim. Silence **never** awards funds. Uncontested acknowledged returns can be finalized after the window; disputed funds may remain locked indefinitely without agreement or a responsive mediator.
 
 Cancelling is only allowed before handover, and it refunds the renter in full. A no-show who never received the item is a cancel, not a default.
 
 ### Demo clock
 
-Deploy turns demo mode on. Time is scaled from each rental's booking timestamp by `DEMO_SCALE = 720`: one logical day passes in two real minutes. ERC-4907 `userExpires` is stored in real unix time, so `userOf` and a countdown both track the scaled deadline. `setDemoMode` is the only admin switch, and it cannot move funds.
+Deploy defaults to real time. Set `RENTRA_DEMO_MODE=true` explicitly to accelerate rental deadlines by `DEMO_SCALE = 720`: one logical day passes in two real minutes. ERC-4907 expiry uses real unix time. Claim/response windows always take **24 real hours**, so a complete fast settlement demo should use local Anvil time travel. `setDemoMode` cannot change the clock while any rentals are open and cannot move funds. Reputation's separate admin can approve owners for future discount credit but cannot withdraw escrow funds.
 
 ## What is implemented
 
-- The four contracts above, with Foundry tests for the happy path, cancel, permit booking, late fee (including the cap), default, permanent reputation damage, bonded claim accept / counter / timeout / bond slash, signature replay and expiry, the value cap, and demo-mode scaling.
-- `script/Deploy.s.sol` for Ethereum Sepolia. `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY` come from the environment. The script writes `contracts/deployments/sepolia.json` and prints the addresses. Nothing secret is committed.
+- The four contracts above, with Foundry regressions for return requests, mutual settlement, mediator consent and bounded rulings, deposit floors, approval-gated reputation, claim bonds, exact deadline boundaries, signature replay/expiry, and demo clocks. A fuzz test checks that settling one rental cannot spend another rental's funds.
+- `script/Deploy.s.sol` for Ethereum Sepolia, with an encrypted CLI keystore or optional legacy environment signer. It writes only an ignored, unverified candidate. The RPC verifier checks the live instance before an explicit promotion updates either deployment manifest. Follow [docs/DEPLOY-V2.md](docs/DEPLOY-V2.md).
 - English Next.js interface with responsive layouts, active navigation, accessible forms, and transaction confirmation feedback. Pages: catalog, item detail and booking (permit + book), list an item, my rentals (countdown from `userExpires`, default and finalize), handover QR, return (including unilateral return and the damage-claim forms), and a public reputation page.
 - RainbowKit connects directly to MetaMask through its browser extension or in-app mobile browser. There is no account login or embedded wallet. Transactions and EIP-712 signatures use wagmi/viem on Ethereum Sepolia; wallets pay network fees with Sepolia ETH.
-- Photo hashing in the browser (`keccak256`). The file stays on the device.
-- GitHub Actions: `forge build`, `forge test`, and `npm run build`.
+- Photo hashing in the browser (`keccak256`), original photo download, and JSON export of rental/evidence records. Files stay on the device; exports are not signed attestations.
+- GitHub Actions: `forge build`, `forge test`, generated ABI consistency, frontend protocol-gate tests, and `npm run build`.
 
 ## What is stubbed or left out
 
 - No gas sponsorship or WalletConnect QR pairing. Use the MetaMask extension or open Rentra in the MetaMask mobile browser.
 - No IPFS upload. Only the hash is stored onchain.
 - The handover screen shows a QR and accepts a pasted payload. It does not open the camera to scan.
-- `GuarantorVault` and `JurorPool` (Pyth Entropy) are not built. The `guarantee` field stays zero. `escalate` only starts the timeout path.
+- `GuarantorVault` and `JurorPool` (Pyth Entropy) are not built. The `guarantee` field stays zero. The v2 mediator is a wallet chosen by the parties, not a staffed service or decentralized jury. `escalate` does not resolve anything automatically.
+- No price appraisal, proof of unique humans, hosted evidence store, email/push reminders, or keeper. Users must retain originals, monitor deadlines, and submit finalization transactions.
 - No Pyth USD/IDR feed and no smart-lock simulation.
 - The app follows the rental and reputation flow from the plan, with English copy. Camera QR scanning, a demo video, and a slide deck are not included.
 
@@ -83,6 +90,7 @@ Deploy turns demo mode on. Time is scaled from each rental's booking timestamp b
 cd contracts
 forge build
 forge test
+node ../app/scripts/sync-abis.mjs --check
 
 # app (RPC and contract defaults are included)
 cd app
@@ -90,6 +98,10 @@ cp .env.example .env.local
 npm install
 npm run dev
 ```
+
+With Node 22, run `npm test` and `npm run build` from `app/`. After Solidity changes, run `forge build` then `npm run sync:abi`. For pilot discount credit, the Reputation admin must review an owner offchain and call `setOwnerApproval(owner, true)`; all owners start unapproved. Do not approve arbitrary wallets just to populate the demo score.
+
+For a credential-free local integration test, start `anvil --chain-id 11155111` in one terminal, then run `npm run test:local` from `app/` after `forge build`. The script uses only Anvil's unlocked accounts at `127.0.0.1:8545`, installs a local Multicall3 fixture, verifies the frontend signing types against Solidity, exercises a return dispute and settlement, and saves public browser fixture addresses to `/tmp/rentra-local-deployment.json`. It never reads a private key or accepts a remote RPC override. Coverage requires `forge coverage --ir-minimum --report summary` because the default unoptimized coverage build reaches Solidity's stack-depth limit.
 
 `npm run build` requires no authentication credentials or WalletConnect project ID. Empty address overrides use the committed Ethereum Sepolia deployment. The catalog reads live listings and shows an empty state until owners list items.
 
@@ -103,7 +115,7 @@ npm run dev
 
 Connecting a wallet does not request a login signature. Booking and handover/return request the signatures required by the rental contracts. The MetaMask icon is distributed with its RainbowKit MIT license in `app/public/licenses/rainbowkit.txt`.
 
-## Current Ethereum Sepolia Deployment
+## Historical v1 Ethereum Sepolia Deployment
 
 Chain ID: `11155111`. Deployer: [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](https://sepolia.etherscan.io/address/0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf).
 
@@ -114,28 +126,17 @@ Chain ID: `11155111`. Deployer: [`0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`](h
 | Reputation | [`0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7`](https://sepolia.etherscan.io/address/0x0f437Eb9B6fb557bb8cEB0287b901a566d3Bd8a7) |
 | RentalEscrow | [`0x888d7200C2fC016a8Adde7328092B40BB14C5cab`](https://sepolia.etherscan.io/address/0x888d7200C2fC016a8Adde7328092B40BB14C5cab) |
 
-Read-only RPC verification confirmed bytecode at all four addresses, matching admin and cross-contract references, and mIDR token metadata. Demo mode was enabled at verification. The deployment is recorded in `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json`.
+The previous deployment notes reported bytecode and integration verification with demo mode enabled. These live checks were not repeated for v2. The historical deployment is recorded in `contracts/deployments/sepolia.json` and `app/src/deployments/sepolia.json`.
 
-The app uses this deployment by default. `NEXT_PUBLIC_*_ADDRESS` environment variables can override individual addresses.
+The app reads this deployment by default but disables v2 signatures and transactions against it. `NEXT_PUBLIC_*_ADDRESS` overrides must identify one consistent v2 deployment, including both contracts' escrow references.
 
 ## Deploy a New Instance to Ethereum Sepolia
 
-Chain id `11155111`. The script does not broadcast unless you pass `--broadcast`. It keeps demo mode on and does not pre-list items.
+Chain id `11155111`. The script does not broadcast unless you pass `--broadcast`. It defaults to real-time mode, leaves owners unapproved for discount credit, and does not pre-list items.
 
-```bash
-cd contracts
-cp .env.example .env
-# set DEPLOYER_PRIVATE_KEY, and SEPOLIA_RPC_URL if you are not using the public endpoint
+Follow the copy-paste commands in [docs/DEPLOY-V2.md](docs/DEPLOY-V2.md): configure a local encrypted keystore, simulate with the public sender address, broadcast with `--account` and `--sender`, and complete source verification. `foundry.toml` uses the Etherscan V2 Sepolia endpoint. Never put a private key in a CLI argument or commit an API-key-bearing RPC URL.
 
-forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --slow -g 800
-```
-
-Since Sepolia's Glamsterdam upgrade (Oct 6, 2026), forge underestimates contract-creation gas. `--slow -g 800` is required. `foundry.toml` maps the `sepolia` endpoint to `SEPOLIA_RPC_URL`. The script also reads `DEPLOYER_PRIVATE_KEY` and refuses any chain other than 11155111. It deploys `MockIDR`, `RentalItem`, `Reputation`, and `RentalEscrow` with demo mode on, wires `setEscrow`, prints the addresses, and writes:
-
-- `contracts/deployments/sepolia.json`
-- `app/src/deployments/sepolia.json`
-
-Do not commit an RPC URL that contains an API key. Add `--verify` only after `ETHERSCAN_API_KEY` is set in the environment.
+Both dry runs and broadcasts write only `contracts/deployments/sepolia.candidate.json`. From `app/`, `npm run verify:deployment` checks live bytecode, chain, protocol version, admins, contract links, clock mode, and token metadata at one block. It leaves the manifests unchanged. After inspecting receipts and source verification, `npm run verify:deployment -- --promote` updates both manifests with the same verified snapshot. Simulated/mismatched candidates and local Anvil promotion are rejected. Historical v1 files remain unchanged until a successful explicit promotion.
 
 ## Vercel
 
@@ -158,18 +159,18 @@ NEXT_PUBLIC_REPUTATION_ADDRESS=
 NEXT_PUBLIC_RENTAL_ESCROW_ADDRESS=
 ```
 
-Wallet configuration is in `app/src/lib/wallet.ts`. The injected MetaMask connector does not use WalletConnect, so no project ID is required.
+Wallet configuration is in `app/src/lib/wallet.ts`. The injected MetaMask connector does not use WalletConnect, so no project ID is required. Connect a new consistent v2 deployment before publishing this frontend as a transactional app; otherwise it remains read-only.
 
 ## Deviations from the plan
 
 The plan's function list is marked "ringkas" (a sketch). A few signatures grew a parameter the sketch left implicit:
 
-- `handover` and `confirmReturn` need the `uint64 timestamp` that is inside the EIP-712 struct, so the explicit form is `(rentalId, photoHash, timestamp, signature)`. The 3-argument form from the plan still exists: the `bytes` argument is `abi.encode(uint64 timestamp, bytes signature)`. An empty return signature is the unilateral return from the risk section.
+- `handover` and `confirmReturn` keep explicit and packed timestamp forms. In v2, an empty return signature starts a request, not an acknowledged return. Handover typed data also binds the accepted mediator, and the escrow domain version is `2`.
 - `Reputation.record(renter, outcome, valueIDR)` is unchanged. The escrow calls `record(renter, outcome, valueIDR, owner)` so the "different owners" rule can be enforced.
 - `bookWithPermit` wraps ERC-2612 so approve and book are one transaction. `book` still pulls via allowance.
 - `finalizeClaim` also releases a clean return after 24 hours with no damage claim (`Returned → Settled`).
 
-Parameters that the plan left as "contoh" are constants: Rp500.000 minimum countable value, 10% off per new owner, 30% floor, 10% claim bond, 24 hour claim and response windows, demo scale 720.
+Parameters include Rp500.000 minimum countable value, 10 percentage points off per new approved owner, a 30% reputation floor (subject to the listing floor), 10% claim bond, 24 real-hour claim/response windows, and demo rental scale 720.
 
 ## Contributing
 
