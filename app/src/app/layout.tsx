@@ -3,7 +3,12 @@ import { Providers } from "@/components/providers";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 
+const siteUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: { default: "Rentra — Rent more. Leave your ID at home.", template: "%s | Rentra" },
   description:
     "Rent everyday essentials without handing over your ID. Deposits held in escrow, clear rental terms, and a reputation that travels with you.",

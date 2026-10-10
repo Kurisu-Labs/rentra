@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
-import { Icon } from "@/components/icon";
 
 const links = [
   { href: "/", label: "Explore" },
@@ -17,12 +16,7 @@ export function Header() {
   return (
     <header className="header">
       <Link href="/" className="brand" aria-label="Rentra home">
-        <span className="brand-mark">
-          <Icon name="box" size={23} />
-        </span>
-        <strong>
-          rentra<span className="brand-dot">.</span>
-        </strong>
+        <img src="/rentra-logo.png" alt="" width={148} height={154} className="brand-logo" />
       </Link>
       <nav className="nav" aria-label="Main navigation">
         {links.map(({ href, label }) => {
