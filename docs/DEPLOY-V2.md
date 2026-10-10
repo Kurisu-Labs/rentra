@@ -1,6 +1,6 @@
 # Rentra v2 — runbook deployment Ethereum Sepolia
 
-**Current status:** instance v2 sudah dideploy dan diverifikasi; lihat [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). Alamat committed sekarang v2. Langkah deployment di bawah akan membuat instance baru dan hanya dijalankan bila itu memang diinginkan. Tidak ada migrasi dana atau reputasi v1. Uji rental multi-wallet dan publikasi frontend masih terpisah.
+**Current status:** instance v2 yang committed adalah redeploy 10 Oktober 2026 dengan admin tim `0xe14a16eA71Da4f8FA1CDc2e3cA7A4F8A1eFcfCcf`; lihat [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). Instance v2 sebelumnya (admin `0xadf0…33f6`) digantikan karena kunci admin tidak tersedia. Langkah deployment di bawah akan membuat instance baru dan hanya dijalankan bila itu memang diinginkan. Tidak ada migrasi dana atau reputasi v1. Uji rental multi-wallet dan publikasi frontend masih terpisah.
 
 Untuk memeriksa instance yang sudah committed tanpa transaksi atau perubahan file:
 
