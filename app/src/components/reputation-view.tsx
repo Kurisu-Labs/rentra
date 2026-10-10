@@ -9,9 +9,11 @@ import { addresses, chain, configured, reputationAbi } from "@/lib/contracts";
 import { formatIDR, shortAddr, tupleAt } from "@/lib/format";
 import { Icon } from "@/components/icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
+import { useProtocol } from "@/components/use-protocol";
 
 export function ReputationView({ initial }: { initial?: string }) {
   const { address: connected } = useAccount();
+  const protocol = useProtocol();
   const router = useRouter();
   const [lookup, setLookup] = useState(initial ?? "");
   const [lookupError, setLookupError] = useState("");
@@ -51,7 +53,11 @@ export function ReputationView({ initial }: { initial?: string }) {
     query: { enabled: configured && Boolean(target) },
   });
 
-  const factorBps = typeof factor.data === "bigint" ? Number(factor.data) : 10000;
+  const damages = useReadContract({
+    chainId: chain.id, address: addresses.reputation, abi: reputationAbi,
+    functionName: "damagesOf", args: [target as Address], query: { enabled: protocol.ready && Boolean(target) },
+  });
+  const factorBps = typeof factor.data === "bigint" || typeof factor.data === "number" ? Number(factor.data) : 10000;
   const ok = tupleAt(score.data, 1);
   const late = tupleAt(score.data, 2);
   const defaults = tupleAt(score.data, 3);
@@ -116,7 +122,7 @@ export function ReputationView({ initial }: { initial?: string }) {
           {!configured && (
             <p className="notice">
               Reputation records aren’t available in this preview. Once connected, this page shows
-              verified rental history.
+              recorded rental history.
             </p>
           )}
           {configured && !target && !initial && (
@@ -146,6 +152,7 @@ export function ReputationView({ initial }: { initial?: string }) {
                 </span>
                 <span className="pill">Score {points?.toString() ?? "0"}</span>
               </div>
+              {protocol.ready && <p>Settlements with damage compensation: {damages.data?.toString() ?? "—"}</p>}
               <div className="stats">
                 <div className="stat">
                   <strong>{ok?.toString() ?? "0"}</strong>
@@ -182,20 +189,22 @@ export function ReputationView({ initial }: { initial?: string }) {
           <Icon name="shield" size={28} />
           <h2 style={{ marginTop: 16 }}>Earn trust, one return at a time.</h2>
           <p>
-            Each qualifying on-time rental from a new owner lowers your deposit factor by 10
-            percentage points, down to 30%.
+            Each settled, qualifying on-time rental from a new manually approved owner lowers your
+            deposit factor by 10 percentage points, down to 30%. Owners can require a higher minimum.
           </p>
           <p>
             Five qualifying owners bring the factor to 50%. Rentals must be worth at least Rp500,000
             to count toward the discount.
           </p>
           <p>
-            The discount applies up to your highest successfully rented value. Amounts above that
-            still require a full deposit.
+            The discount applies up to your highest qualifying successfully rented value. Amounts
+            above that still require a full deposit. Approval is a pilot trust decision, not proof
+            that each wallet belongs to a different person.
           </p>
           <p className="small muted">
             Your record can’t be transferred and contains no national ID number. Late returns don’t
-            earn a discount; a non-return permanently restores the full deposit.
+            earn a discount. Damage compensation does not earn successful-rental credit; a
+            non-return permanently restores the full deposit. Return requests do not earn credit.
           </p>
         </aside>
       </div>

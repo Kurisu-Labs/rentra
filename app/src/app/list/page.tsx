@@ -18,13 +18,16 @@ export default function ListPage() {
   const [rate, setRate] = useState("150000");
   const [late, setLate] = useState("10000");
   const [grace, setGrace] = useState("24");
+  const [floor, setFloor] = useState("100");
+  const [acceptExposure, setAcceptExposure] = useState(false);
 
   async function submit() {
     if (!configured || !isConnected || !addresses.item || !name.trim()) return;
+    if (Number(floor) < 100 && !acceptExposure) throw new Error("Accept the uncovered exposure before publishing.");
     const data = encodeFunctionData({
       abi: rentalItemAbi,
       functionName: "listItem",
-      args: [name.trim(), rpToWei(value), rpToWei(rate), rpToWei(late), Number(grace)],
+      args: [name.trim(), rpToWei(value), rpToWei(rate), rpToWei(late), Number(grace), Number(floor) * 100],
     });
     await tx.send(addresses.item, data);
   }
@@ -71,8 +74,13 @@ export default function ListPage() {
             aria-describedby="value-help"
           />
           <span id="value-help" className="field-help">
-            Set the item’s fair replacement value. This is the base deposit for a new renter.
+            Declare a fair replacement value for its current condition. Rentra does not appraise
+            this price. Include model, condition, and accessories in the item name or metadata.
           </span>
+          <label htmlFor="deposit-floor">Minimum deposit (% of item value)</label>
+          <input id="deposit-floor" type="number" min="30" max="100" step="1" required value={floor} onChange={(event) => { setFloor(event.target.value); setAcceptExposure(false); }} />
+          <p className="field-help">100% retains full collateral. A lower floor lets eligible reputation reduce the deposit. The floor is fixed for this listing. No guarantor or insurance covers the difference.</p>
+          {Number(floor) < 100 && <label><input type="checkbox" checked={acceptExposure} onChange={(event) => setAcceptExposure(event.target.checked)} /> I accept that a discounted deposit may not cover the item’s full replacement value.</label>}
           <div className="field-grid">
             <div>
               <label htmlFor="daily-rate">Daily rental price (Rp)</label>
@@ -121,7 +129,7 @@ export default function ListPage() {
           </span>
           <div className="row">
             {isConnected ? (
-              <button type="submit" disabled={!configured || tx.pending || !name.trim()}>
+              <button type="submit" disabled={!tx.writable || tx.pending || !name.trim() || (Number(floor) < 100 && !acceptExposure)}>
                 {tx.pending ? "Publishing your item…" : "Publish listing"}
                 <Icon name="arrow" size={16} />
               </button>
@@ -136,7 +144,8 @@ export default function ListPage() {
           <h2 style={{ marginTop: 16 }}>Clear terms from the start.</h2>
           <p>
             The renter sees your price, item value, and late fees before booking. Their reputation
-            may reduce the deposit.
+            may reduce the deposit only as far as your chosen minimum. You accept any uncovered
+            replacement value when allowing a lower deposit.
           </p>
           <p>
             At pickup and return, record the item’s condition together. Funds are released according

@@ -109,6 +109,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   const now = Math.floor(Date.now() / 1000);
   const [start, setStart] = useState(unixToLocalInput(now + 60));
   const [end, setEnd] = useState(unixToLocalInput(now + 2 * 86400));
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const terms = useReadContract({
     chainId: chain.id,
@@ -185,6 +186,14 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
     args: [address as Address],
     query: { enabled: Boolean(address) },
   });
+  const floor = useReadContract({
+    chainId: chain.id, address: addresses.item, abi: rentalItemAbi,
+    functionName: "depositFloorBps", args: [tokenId], query: { enabled: tx.writable },
+  });
+  const approvedOwner = useReadContract({
+    chainId: chain.id, address: addresses.reputation, abi: reputationAbi,
+    functionName: "approvedOwner", args: [owner.data as Address], query: { enabled: tx.writable && typeof owner.data === "string" },
+  });
   const balance = useReadContract({
     chainId: chain.id,
     address: addresses.idr,
@@ -214,7 +223,9 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
         ? value
         : undefined;
   const rent = typeof quoteRent.data === "bigint" ? quoteRent.data : undefined;
-  const factorBps = typeof factor.data === "bigint" ? Number(factor.data) : 10000;
+  const factorBps = typeof factor.data === "bigint" || typeof factor.data === "number" ? Number(factor.data) : 10000;
+  const floorBps = typeof floor.data === "bigint" || typeof floor.data === "number" ? Number(floor.data) : undefined;
+  const uncovered = typeof value === "bigint" && deposit !== undefined ? value - deposit : undefined;
 
   async function faucet() {
     if (!addresses.idr) return;
@@ -223,6 +234,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   }
 
   async function book() {
+    if (!acceptedTerms) throw new Error("Review and accept the replacement value and rental terms.");
     if (
       !addresses.escrow ||
       !addresses.idr ||
@@ -297,7 +309,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
           )}
           <dl className="summary">
             <div>
-              <dt>Item value</dt>
+              <dt>Owner-declared replacement value</dt>
               <dd>{formatIDR(typeof value === "bigint" ? value : undefined)}</dd>
             </div>
             <div>
@@ -313,6 +325,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
               <dd>{grace?.toString() ?? "—"} hours</dd>
             </div>
           </dl>
+          <p className="field-help">This value is declared by the owner and is not independently appraised. Check the model, condition, and included accessories before paying.</p>
           {typeof user.data === "string" &&
             user.data !== "0x0000000000000000000000000000000000000000" && (
               <p className="notice">
@@ -325,6 +338,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
             Your current factor is {(factorBps / 100).toFixed(0)}% on eligible value. The full value
             applies above your highest successfully rented amount. No ID document is required.
           </p>
+          {tx.writable && <p>Owner’s minimum deposit: {floorBps === undefined ? "Loading…" : `${floorBps / 100}%`}. Only settled, qualifying rentals from manually approved owners earn discounts. {approvedOwner.data === true ? "This owner is approved for discount credit." : "Approval for discount credit has not been confirmed for this owner."}</p>}
           <Link className="text-link" href="/reputation">
             Understand your reputation <Icon name="arrow" size={16} />
           </Link>
@@ -364,10 +378,13 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
               <dd>{formatIDR(total)}</dd>
             </div>
           </dl>
+          <p className="notice">Replacement value not covered by this deposit: <strong>{formatIDR(uncovered)}</strong>. No insurance or funded guarantor is provided.</p>
           <p className="small muted">
-            Rental time rounds up to full days. The remaining deposit is released after the 24-hour
-            claim window, subject to fees or claims. Demo mode speeds up this window.
+            Rental time rounds up to full days. An acknowledged return starts a 24-hour real-time
+            claim window, including in demo mode. Unresolved disputes can keep funds locked
+            indefinitely. A mediator can be agreed before pickup; no mediation service is provided.
           </p>
+          <label><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /> I accept the listed replacement value, rental charges, deposit, and return/dispute rules.</label>
           {!isConnected ? (
             <WalletConnectButton label="Connect MetaMask to book" className="full-width" />
           ) : (
@@ -379,7 +396,7 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
               <button
                 type="button"
                 className="secondary full-width"
-                disabled={tx.pending}
+                disabled={tx.pending || !tx.writable}
                 onClick={() => void tx.run(faucet)}
               >
                 Add test funds
@@ -405,6 +422,8 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
                 type="button"
                 disabled={
                   tx.pending ||
+                  !tx.writable ||
+                  !acceptedTerms ||
                   !validDates ||
                   rent === undefined ||
                   deposit === undefined ||
