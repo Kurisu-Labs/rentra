@@ -25,6 +25,7 @@ contract RentalItem is ERC721, ERC721URIStorage, IERC4907 {
     uint256 public nextId = 1;
 
     mapping(uint256 tokenId => Terms) private _terms;
+    mapping(uint256 tokenId => uint16) public depositFloorBps;
     mapping(uint256 tokenId => address) private _users;
     mapping(uint256 tokenId => uint64) private _expires;
 
@@ -37,6 +38,7 @@ contract RentalItem is ERC721, ERC721URIStorage, IERC4907 {
         uint32 graceHours,
         string metadataURI
     );
+    event DepositFloorSet(uint256 indexed tokenId, uint16 floorBps);
 
     error NotAdmin();
     error NotEscrow();
@@ -69,16 +71,38 @@ contract RentalItem is ERC721, ERC721URIStorage, IERC4907 {
         uint256 lateFeePerHour,
         uint32 graceHours
     ) external returns (uint256 tokenId) {
+        return _listItem(metadataURI, valueIDR, ratePerDay, lateFeePerHour, graceHours, 10_000);
+    }
+
+    /// @notice The owner explicitly accepts the uncovered exposure below the item's value.
+    function listItem(
+        string calldata metadataURI,
+        uint256 valueIDR,
+        uint256 ratePerDay,
+        uint256 lateFeePerHour,
+        uint32 graceHours,
+        uint16 floorBps
+    ) external returns (uint256 tokenId) {
+        if (floorBps < 3_000 || floorBps > 10_000) revert InvalidTerms();
+        return _listItem(metadataURI, valueIDR, ratePerDay, lateFeePerHour, graceHours, floorBps);
+    }
+
+    function _listItem(
+        string calldata metadataURI,
+        uint256 valueIDR,
+        uint256 ratePerDay,
+        uint256 lateFeePerHour,
+        uint32 graceHours,
+        uint16 floorBps
+    ) internal returns (uint256 tokenId) {
         if (valueIDR == 0 || ratePerDay == 0) revert InvalidTerms();
         tokenId = nextId++;
         _safeMint(msg.sender, tokenId);
         _setTokenURI(tokenId, metadataURI);
-        _terms[tokenId] = Terms({
-            valueIDR: valueIDR,
-            ratePerDay: ratePerDay,
-            lateFeePerHour: lateFeePerHour,
-            graceHours: graceHours
-        });
+        _terms[tokenId] =
+            Terms({valueIDR: valueIDR, ratePerDay: ratePerDay, lateFeePerHour: lateFeePerHour, graceHours: graceHours});
+        depositFloorBps[tokenId] = floorBps;
+        emit DepositFloorSet(tokenId, floorBps);
         emit Listed(tokenId, msg.sender, valueIDR, ratePerDay, lateFeePerHour, graceHours, metadataURI);
     }
 
@@ -128,12 +152,7 @@ contract RentalItem is ERC721, ERC721URIStorage, IERC4907 {
         return super.tokenURI(tokenId);
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721URIStorage) returns (bool) {
         return interfaceId == type(IERC4907).interfaceId || super.supportsInterface(interfaceId);
     }
 }

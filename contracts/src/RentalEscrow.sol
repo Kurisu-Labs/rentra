@@ -159,6 +159,8 @@ contract RentalEscrow is ReentrancyGuard, EIP712 {
     function quoteDeposit(uint256 tokenId, address renter) public view returns (uint256) {
         (uint256 value,,,) = item.terms(tokenId);
         uint16 factor = reputation.depositFactorBps(renter);
+        uint16 floor = item.depositFloorBps(tokenId);
+        if (factor < floor) factor = floor;
         if (factor >= FULL_BPS) return value;
         uint256 cap = reputation.maxSuccessfulValue(renter);
         if (cap == 0) return value;

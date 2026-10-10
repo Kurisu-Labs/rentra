@@ -527,6 +527,28 @@ contract RentraTest is Test {
         item.listItem("ipfs://nope", 0, RATE, LATE, GRACE);
     }
 
+    function test_defaultListing_keepsFullDeposit() public {
+        vm.prank(address(escrow));
+        reputation.record(renter, 0, VALUE, owner);
+        vm.prank(owner);
+        uint256 tokenId = item.listItem("full collateral", VALUE, RATE, LATE, GRACE);
+        assertEq(escrow.quoteDeposit(tokenId, renter), VALUE, "default listing must retain full collateral");
+    }
+
+    function test_listingFloor_invalidAndHonored() public {
+        vm.prank(owner);
+        vm.expectRevert(RentalItem.InvalidTerms.selector);
+        item.listItem("invalid", VALUE, RATE, LATE, GRACE, 2_999);
+        vm.prank(owner);
+        vm.expectRevert(RentalItem.InvalidTerms.selector);
+        item.listItem("invalid", VALUE, RATE, LATE, GRACE, 10_001);
+        vm.prank(address(escrow));
+        reputation.record(renter, 0, VALUE, owner);
+        vm.prank(owner);
+        uint256 tokenId = item.listItem("floor", VALUE, RATE, LATE, GRACE, 9_500);
+        assertEq(escrow.quoteDeposit(tokenId, renter), 2_850_000 ether);
+    }
+
     function _fund(address who) internal {
         vm.prank(who);
         idr.faucet();
@@ -536,7 +558,7 @@ contract RentraTest is Test {
 
     function _list(address who) internal returns (uint256 tokenId) {
         vm.prank(who);
-        tokenId = item.listItem("ipfs://kamera", VALUE, RATE, LATE, GRACE);
+        tokenId = item.listItem("ipfs://kamera", VALUE, RATE, LATE, GRACE, 3_000);
     }
 
     function _listOther(string memory name) internal returns (uint256 tokenId) {
