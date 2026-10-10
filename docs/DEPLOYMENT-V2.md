@@ -37,7 +37,7 @@ Actual gas cost across the six successful transactions: **0.000055900770380195 S
 
 ## Still pending
 
-A funded multi-wallet Sepolia rental acceptance test has **not** been performed. The earlier Anvil browser/signing tests remain local evidence. Owner admission, an available mutually accepted mediator, hosted photo storage, notifications, insurance, and a funded guarantor have not been provisioned. Disputed funds can remain locked without agreement or a responsive mediator.
+Funded multi-wallet Sepolia contract integration has since completed 31 transactions and 33 immediate checks; see [SEPOLIA-ACCEPTANCE.md](SEPOLIA-ACCEPTANCE.md). The clean-return finalization remains pending until 11 October 2026 at 13:33:48 WIB, and an actual MetaMask extension transaction journey is untested. The earlier Anvil evidence remains local. Operational owner admission, an independent mediation service, hosted photo storage, notifications, insurance, and a funded guarantor remain unprovisioned. Disputed funds can remain locked without agreement or a responsive mediator.
 
 Frontend defaults now target this v2 instance. Existing hosted builds require a rebuild/redeploy, and any stale address overrides must be removed or updated as a consistent set. No production frontend publication or PR merge is implied by the contract deployment.
 

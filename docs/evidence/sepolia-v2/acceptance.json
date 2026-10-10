@@ -1,0 +1,457 @@
+{
+  "chainId": 11155111,
+  "contracts": {
+    "MockIDR": "0x5f1540ad73433d80e510efa8dac04d2acbfa8f24",
+    "RentalItem": "0x29a2ded83f440fc1d16d0f1617e8c2fb7d2c8525",
+    "Reputation": "0x6356f9b9e5dd5a13e2b1fdd2680f19d5ef5f1c1a",
+    "RentalEscrow": "0x9be48b39d3fa6cbf929141a247d9302495d17a73"
+  },
+  "actors": {
+    "admin": "0xadf00a2476c77163B607af6E55A6a90185ae33f6",
+    "owner": "0xA7Dae44237A3afF3E9C3dB0DE73B2e9446c56e32",
+    "renter": "0x6b1E840ECB4A27eE98375e0520B047cC14B16D2A",
+    "mediator": "0x2412Eef68EA4Ed7912337ACF31492E0396640F02"
+  },
+  "startedAt": "2026-10-10T06:20:35.207Z",
+  "completedImmediateAt": "2026-10-10T06:33:50.538Z",
+  "tokenId": "1",
+  "checks": [
+    "Permit booking locks exact rent and deposit",
+    "Cancellation refunds in full",
+    "Cancelled status",
+    "mediation: frontend handover digest",
+    "mediation: ERC4907 renter",
+    "Unsigned return pays nothing",
+    "Unsigned return remains pending",
+    "Unsigned return cannot finalize",
+    "Owner cannot rule as mediator",
+    "Mediator settlement owner balance",
+    "Mediator settlement renter balance",
+    "Mediator settlement isolated escrow",
+    "Mediator settlement status",
+    "claim: frontend handover digest",
+    "claim: ERC4907 renter",
+    "claim: frontend return digest",
+    "Damage bond is 10 percent",
+    "Claim cannot pay on silence",
+    "Claim settlement returns bond",
+    "Claim settlement renter balance",
+    "Claim settlement isolated escrow",
+    "mutual: frontend handover digest",
+    "mutual: ERC4907 renter",
+    "Settlement rejects stale amount",
+    "Mutual settlement owner balance",
+    "Mutual settlement renter balance",
+    "Mutual settlement isolated escrow",
+    "clean: frontend handover digest",
+    "clean: ERC4907 renter",
+    "clean: frontend return digest",
+    "Clean return enforces real claim window",
+    "Test owner remains unapproved",
+    "No fabricated discount credit"
+  ],
+  "scenarios": {
+    "cancel": {
+      "rentalId": "1",
+      "immediateStepsComplete": true,
+      "finalizationPending": false
+    },
+    "mediation": {
+      "rentalId": "2",
+      "immediateStepsComplete": true,
+      "finalizationPending": false,
+      "balanceBeforeBooking": {
+        "blockNumber": "11882727",
+        "owner": "10000000000000000000000000",
+        "renter": "10000000000000000000000000",
+        "escrow": "0"
+      }
+    },
+    "claim": {
+      "rentalId": "3",
+      "immediateStepsComplete": true,
+      "finalizationPending": false,
+      "balanceBeforeBooking": {
+        "blockNumber": "11882747",
+        "owner": "10030000000000000000000000",
+        "renter": "9970000000000000000000000",
+        "escrow": "0"
+      }
+    },
+    "mutual": {
+      "rentalId": "4",
+      "immediateStepsComplete": true,
+      "finalizationPending": false,
+      "balanceBeforeBooking": {
+        "blockNumber": "11882754",
+        "owner": "10050000000000000000000000",
+        "renter": "9950000000000000000000000",
+        "escrow": "0"
+      }
+    },
+    "clean": {
+      "rentalId": "5",
+      "immediateStepsComplete": true,
+      "finalizationPending": true,
+      "finalizeAfter": "2026-10-11T06:33:48.000Z"
+    }
+  },
+  "gasCostETH": "0.000015705037088389",
+  "immediateChecksPassed": true,
+  "complete": false,
+  "liveSnapshot": {
+    "verifiedAtBlock": "11882766",
+    "statuses": {
+      "cancel": {
+        "rentalId": "1",
+        "status": 8
+      },
+      "mediation": {
+        "rentalId": "2",
+        "status": 6
+      },
+      "claim": {
+        "rentalId": "3",
+        "status": 6
+      },
+      "mutual": {
+        "rentalId": "4",
+        "status": 6
+      },
+      "clean": {
+        "rentalId": "5",
+        "status": 2
+      }
+    },
+    "ownerBalanceMIDR": "10090000",
+    "renterBalanceMIDR": "9410000",
+    "escrowBalanceMIDR": "500000",
+    "remainingCleanDepositMIDR": "500000",
+    "itemLocked": true,
+    "erc4907UserCleared": true,
+    "ownerApproved": false,
+    "depositFactorBps": 10000,
+    "damageSettlements": 3,
+    "realTimeMode": true,
+    "claimWindowSeconds": 86400,
+    "finalizeAfter": "2026-10-11T06:33:48.000Z"
+  },
+  "transactions": [
+    {
+      "step": "fund.owner",
+      "role": "admin",
+      "functionName": "fund-test-wallet",
+      "hash": "0x9443458ae5c53eb695722b002166c0e2f5817b2d18d04e2bc2ad4aacd389c326",
+      "value": "100000000000000",
+      "blockNumber": "11882699",
+      "actualGasCostWei": "204610230000",
+      "confirmed": true
+    },
+    {
+      "step": "fund.renter",
+      "role": "admin",
+      "functionName": "fund-test-wallet",
+      "hash": "0xc40f849b0cc0e56ee203f4fabcbf9239e75c14dbfbc14f4eeb22ddccc5fd44fb",
+      "value": "100000000000000",
+      "blockNumber": "11882702",
+      "actualGasCostWei": "204609411600",
+      "confirmed": true
+    },
+    {
+      "step": "fund.mediator",
+      "role": "admin",
+      "functionName": "fund-test-wallet",
+      "hash": "0x95bd40deae28a3a851f30bb3c932f82b7e6ea482bc96e08f16537535c0205c97",
+      "value": "100000000000000",
+      "blockNumber": "11882704",
+      "actualGasCostWei": "204609002400",
+      "confirmed": true
+    },
+    {
+      "step": "faucet.owner",
+      "role": "owner",
+      "functionName": "faucet",
+      "hash": "0xe5c9c9192a23f064e46d22868ce61cf1837f60b6bd65a1a76c4d5c3e11c0898c",
+      "value": "0",
+      "blockNumber": "11882705",
+      "actualGasCostWei": "239234286632",
+      "confirmed": true
+    },
+    {
+      "step": "faucet.renter",
+      "role": "renter",
+      "functionName": "faucet",
+      "hash": "0x4cb3234a985969649e358d7c809d91e9313bff9f5b9ef495114f50d9100cb41a",
+      "value": "0",
+      "blockNumber": "11882709",
+      "actualGasCostWei": "141309934768",
+      "confirmed": true
+    },
+    {
+      "step": "list-test-item",
+      "role": "owner",
+      "functionName": "listItem",
+      "hash": "0x8a45837592f1b75fe490b5facc92c091c2625f211a828b47aa50f625a7a36113",
+      "value": "0",
+      "blockNumber": "11882723",
+      "actualGasCostWei": "1252621335140",
+      "confirmed": true
+    },
+    {
+      "step": "cancel.book",
+      "role": "renter",
+      "functionName": "bookWithPermit",
+      "hash": "0xd68d54eac8c9d7100bac711757de3e3c4a49741b3cf010a4acc5afb18ddca29c",
+      "value": "0",
+      "blockNumber": "11882724",
+      "actualGasCostWei": "1537292191776",
+      "confirmed": true
+    },
+    {
+      "step": "cancel.cancel",
+      "role": "owner",
+      "functionName": "cancel",
+      "hash": "0x0b0b57eb8a0abf55064da51a8efab672fa5806d283e7bd21cb83a7841270d291",
+      "value": "0",
+      "blockNumber": "11882725",
+      "actualGasCostWei": "175926629472",
+      "confirmed": true
+    },
+    {
+      "step": "approve.renter",
+      "role": "renter",
+      "functionName": "approve",
+      "hash": "0x46101b9bd1d582860fe676d77a6cfe522792a2bb825eb8f83e93b4677eb6a40e",
+      "value": "0",
+      "blockNumber": "11882726",
+      "actualGasCostWei": "128336978323",
+      "confirmed": true
+    },
+    {
+      "step": "approve.owner",
+      "role": "owner",
+      "functionName": "approve",
+      "hash": "0xcfba540e25709824ab3838d93ac1c168e2f131e02e75e2a7cb1e71eff8f18d30",
+      "value": "0",
+      "blockNumber": "11882727",
+      "actualGasCostWei": "128336849990",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.book",
+      "role": "renter",
+      "functionName": "book",
+      "hash": "0x41905a1dca6ac6eb422889cd03e738b3664171c5e519fe7d4fdc5865b6c425a8",
+      "value": "0",
+      "blockNumber": "11882728",
+      "actualGasCostWei": "1427505823890",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.propose-mediator",
+      "role": "owner",
+      "functionName": "proposeMediator",
+      "hash": "0x75ce37e8cad914a5f3b23b310cad7e29d73a7df6e3a2b9f57b2ffef632add7e7",
+      "value": "0",
+      "blockNumber": "11882730",
+      "actualGasCostWei": "136617961806",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.accept-mediator",
+      "role": "renter",
+      "functionName": "acceptMediator",
+      "hash": "0xe023c0eb836d0eed387973bc79b8b7a4dbb149e7069e330988bf78746ea30c51",
+      "value": "0",
+      "blockNumber": "11882742",
+      "actualGasCostWei": "134454495726",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.handover",
+      "role": "owner",
+      "functionName": "handover",
+      "hash": "0xb93a0d9bed8484d0217963ef59662aef2cf9d7d126954e69c45d7182b14b8733",
+      "value": "0",
+      "blockNumber": "11882744",
+      "actualGasCostWei": "607271788656",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.request-return",
+      "role": "renter",
+      "functionName": "confirmReturn",
+      "hash": "0x81a931c28d972091670bddb14ad8fe7f632446f1644b1107512ec85b5bff23ae",
+      "value": "0",
+      "blockNumber": "11882745",
+      "actualGasCostWei": "263352846996",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.dispute",
+      "role": "owner",
+      "functionName": "disputeReturn",
+      "hash": "0x96dd48895883a1e03cff2e8153af27c7bdcdb38f76413f7f209b8345d1aa5235",
+      "value": "0",
+      "blockNumber": "11882746",
+      "actualGasCostWei": "142259698656",
+      "confirmed": true
+    },
+    {
+      "step": "mediation.resolve",
+      "role": "mediator",
+      "functionName": "resolveReturn",
+      "hash": "0xe53e71253d73296025a35993125d6fca3be9cf4a5d2be63be8036e2fee561950",
+      "value": "0",
+      "blockNumber": "11882747",
+      "actualGasCostWei": "376672793238",
+      "confirmed": true
+    },
+    {
+      "step": "claim.book",
+      "role": "renter",
+      "functionName": "book",
+      "hash": "0x32409b854a585e1412e41e73a2841cc107042fd08f29ffba0d2dade8d8198338",
+      "value": "0",
+      "blockNumber": "11882748",
+      "actualGasCostWei": "1427488113726",
+      "confirmed": true
+    },
+    {
+      "step": "claim.handover",
+      "role": "owner",
+      "functionName": "handover",
+      "hash": "0xffd29c6e58445f67c3b83b354b23f8f806c465e1d117e121e5611d7d5cf84fe2",
+      "value": "0",
+      "blockNumber": "11882749",
+      "actualGasCostWei": "509152237614",
+      "confirmed": true
+    },
+    {
+      "step": "claim.signed-return",
+      "role": "renter",
+      "functionName": "confirmReturn",
+      "hash": "0xffa9f8e462ffc57482a06f40a55e816bf9f4e36151edeefe5a8a599a8e44681f",
+      "value": "0",
+      "blockNumber": "11882750",
+      "actualGasCostWei": "450651716640",
+      "confirmed": true
+    },
+    {
+      "step": "claim.file",
+      "role": "owner",
+      "functionName": "fileDamageClaim",
+      "hash": "0xdb925b767c087c0dd6b16fcc840c08db5b9e1c62526d167fd41039879c4ad842",
+      "value": "0",
+      "blockNumber": "11882751",
+      "actualGasCostWei": "640808660592",
+      "confirmed": true
+    },
+    {
+      "step": "claim.counter",
+      "role": "renter",
+      "functionName": "respondClaim",
+      "hash": "0xc538f40a5ddb5436d150a37ad2d71e65dd768be35e9d75ddf8c1a5c9efc8de44",
+      "value": "0",
+      "blockNumber": "11882753",
+      "actualGasCostWei": "155687047758",
+      "confirmed": true
+    },
+    {
+      "step": "claim.accept-counter",
+      "role": "owner",
+      "functionName": "acceptCounter",
+      "hash": "0x842df267c5b218362c02fad2dfc583a4f3de89f52f8140950d0faf63c8273824",
+      "value": "0",
+      "blockNumber": "11882754",
+      "actualGasCostWei": "169907417478",
+      "confirmed": true
+    },
+    {
+      "step": "mutual.book",
+      "role": "renter",
+      "functionName": "book",
+      "hash": "0x75b746e52c65387da42334b0ba66562bd9f841c654272db7147f330142fee4a4",
+      "value": "0",
+      "blockNumber": "11882756",
+      "actualGasCostWei": "1427500114038",
+      "confirmed": true
+    },
+    {
+      "step": "mutual.handover",
+      "role": "owner",
+      "functionName": "handover",
+      "hash": "0x6b0a0823665c4c2d88e3adf43867b9f0bbed5e7b2c82ab086c8574bd9ec549db",
+      "value": "0",
+      "blockNumber": "11882758",
+      "actualGasCostWei": "509151219336",
+      "confirmed": true
+    },
+    {
+      "step": "mutual.request-return",
+      "role": "renter",
+      "functionName": "confirmReturn",
+      "hash": "0x0cf97a05fdbf66a5773425d2aa150d3120fc048556527fff69b81020c30cd738",
+      "value": "0",
+      "blockNumber": "11882759",
+      "actualGasCostWei": "263352056958",
+      "confirmed": true
+    },
+    {
+      "step": "mutual.offer",
+      "role": "owner",
+      "functionName": "proposeSettlement",
+      "hash": "0xc958b692701331222d69291a2aa94c5ddded56d0b9707b57477adf34f74664ad",
+      "value": "0",
+      "blockNumber": "11882760",
+      "actualGasCostWei": "257979933402",
+      "confirmed": true
+    },
+    {
+      "step": "mutual.accept",
+      "role": "renter",
+      "functionName": "acceptSettlement",
+      "hash": "0x94d60f70a617413c316ad767c30b52987e0ab59a43497d84a5df7001a56e1866",
+      "value": "0",
+      "blockNumber": "11882761",
+      "actualGasCostWei": "310582832672",
+      "confirmed": true
+    },
+    {
+      "step": "clean.book",
+      "role": "renter",
+      "functionName": "book",
+      "hash": "0x55f18351241e1d9131f968675dc4dbc5c3feb0a81e1066cd3b0643b55596937d",
+      "value": "0",
+      "blockNumber": "11882762",
+      "actualGasCostWei": "1415876732787",
+      "confirmed": true
+    },
+    {
+      "step": "clean.handover",
+      "role": "owner",
+      "functionName": "handover",
+      "hash": "0xfab2a47fa694381c40c1402e70878b44edbbc8c98c407944537fd9baeb4c9b8e",
+      "value": "0",
+      "blockNumber": "11882763",
+      "actualGasCostWei": "509149691919",
+      "confirmed": true
+    },
+    {
+      "step": "clean.signed-return",
+      "role": "renter",
+      "functionName": "confirmReturn",
+      "hash": "0x6643e642886bf9130a8c6e5ae08bb035f7564194221f8b7107b8ff3a05fa18dc",
+      "value": "0",
+      "blockNumber": "11882764",
+      "actualGasCostWei": "352727054400",
+      "confirmed": true
+    }
+  ],
+  "testFundingETH": "0.0003",
+  "hardBudgetETH": "0.0005",
+  "evidenceType": "Funded contract integration with locally signed frontend typed data, plus separate read-only hosted browser checks",
+  "walletControl": "Three distinct test addresses controlled by the same test operator; not three independent people",
+  "syntheticEvidence": "keccak256 of a test string; no physical rental or genuine photo is asserted",
+  "remaining": "Clean return is still Returned. Finalization requires the real claim deadline; MetaMask extension signing remains untested."
+}

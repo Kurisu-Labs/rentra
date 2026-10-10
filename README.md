@@ -8,7 +8,7 @@ Full product notes, in Indonesian, are in [docs/PLAN.md](docs/PLAN.md).
 
 ## Safety v2: live Sepolia instance
 
-Protocol **v2 is deployed on Ethereum Sepolia** and is the default in both committed deployment manifests. All four contracts have exact creation/runtime source matches on Sourcify, and admin, cross-contract, bytecode, and signing-domain checks passed. See [docs/DEPLOYMENT-V2.md](docs/DEPLOYMENT-V2.md) for receipts and scope. A funded multi-wallet rental acceptance test remains pending. The [public frontend preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) now uses this deployment; see [preview checks and limitations](docs/PREVIEW-V2.md).
+Protocol **v2 is deployed on Ethereum Sepolia** and is the default in both committed deployment manifests. All four contracts have exact creation/runtime source matches on Sourcify, and admin, cross-contract, bytecode, and signing-domain checks passed. See [docs/DEPLOYMENT-V2.md](docs/DEPLOYMENT-V2.md) for receipts and scope. Funded Sepolia contract checks now cover cancellation, mediation, damage claims, and bilateral settlement; [full acceptance](docs/SEPOLIA-ACCEPTANCE.md) still requires the clean-return claim deadline and an actual MetaMask transaction journey. The [public frontend preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) now uses this deployment; see [preview checks and limitations](docs/PREVIEW-V2.md).
 
 The app blocks signatures and transactions against unrecognized versions or mismatched contract references. Existing v1 rentals, funds, and reputation remain on their original contracts; no migration is implemented. [docs/RENTAL-SAFETY.md](docs/RENTAL-SAFETY.md) describes the v2 rules and limitations.
 
@@ -117,7 +117,7 @@ Connecting a wallet does not request a login signature. Booking and handover/ret
 
 ## Current v2 Ethereum Sepolia Deployment
 
-Chain ID: `11155111`. Mode: real time. No listings or owner approvals are pre-seeded.
+Chain ID: `11155111`. Mode: real time. No listings or owner approvals were seeded by deployment. A subsequent, explicitly labeled E2E fixture and five test rentals are documented in [SEPOLIA-ACCEPTANCE.md](docs/SEPOLIA-ACCEPTANCE.md).
 
 | Contract | Address | Sourcify source verification |
 | --- | --- | --- |

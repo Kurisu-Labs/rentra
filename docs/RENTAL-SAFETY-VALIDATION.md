@@ -51,3 +51,7 @@ The later deployment completed source and integration verification. Before real 
 The initial handoff selected self-operated deployment. The user subsequently authorized agent deployment using a local signer; that later deployment and read-only live verification are recorded in [DEPLOYMENT-V2.md](DEPLOYMENT-V2.md). [DEPLOY-V2.md](DEPLOY-V2.md) remains the runbook for future instances.
 
 Physical exchange and photo authenticity remain offchain facts. Approval does not prove unique people. Contested funds can remain locked indefinitely without agreement or a responsive mediator. These are explicit product limitations, not resolved by the passing tests or this code review.
+
+## Subsequent hosted and Sepolia checks
+
+The [hosted preview report](PREVIEW-V2.md) and [funded Sepolia report](SEPOLIA-ACCEPTANCE.md) supersede the earlier rollout-pending status. They distinguish the 31 confirmed integration transactions from the clean-return finalization and actual MetaMask journey still pending. Earlier local evidence above remains historical.
