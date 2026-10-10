@@ -7,6 +7,7 @@ import type { Hex } from "viem";
 import { addresses, chain, rentalEscrowAbi } from "@/lib/contracts";
 import { formatIDR, formatWhen, rpToWei, tupleAt } from "@/lib/format";
 import { expectRentalStatus } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { useRentraTx } from "@/components/use-tx";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { PhotoHash } from "@/components/photo-hash";
@@ -105,9 +106,9 @@ export function RentalResolution({ rentalId, owner, renter, status }: {
       </p>
       {readFailed && <p className="notice warn" role="alert">Resolution details could not be loaded. Please retry.</p>}
       <p>Mediator: {mediator === zeroAddress ? "None agreed — bilateral settlement only" : mediator}</p>
+      {status === 0 && <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>}
       {status === 0 && mediator === zeroAddress && (
         <>
-          <p className="field-help">Agree on a trusted, available mediator before pickup. They can allocate this rental’s funds and rule non-return after the grace period. No mediation service is provided by Rentra. Cancel before pickup if you cannot agree.</p>
           {proposed !== zeroAddress && <p>Proposed mediator: {proposed}</p>}
           {isOwner && <>
             <label htmlFor="mediator-address">Mediator wallet address (zero address withdraws a pending proposal)</label>

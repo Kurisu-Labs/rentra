@@ -19,6 +19,7 @@ import {
 } from "@/lib/contracts";
 import { formatIDR, formatWhen, shortAddr, tupleAt } from "@/lib/format";
 import { expectRentalStatus } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { Countdown } from "@/components/countdown";
 import { ClaimRelease } from "@/components/claim-release";
 
@@ -238,6 +239,7 @@ function RentalCard({
             </>
           )}
       </p>
+      {status === 0 && <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>}
       <div className="row" style={{ marginTop: 12 }}>
         {status === 0 && (
           <Link className="button" href={`/handover/${id}`}>

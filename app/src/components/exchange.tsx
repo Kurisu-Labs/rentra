@@ -14,6 +14,7 @@ import { useRentraTx } from "@/components/use-tx";
 import { addresses, chain, configured, mockIdrAbi, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
 import { errText, formatIDR, formatWhen, rpToWei, shortAddr, tupleAt } from "@/lib/format";
 import { expectRentalStatus } from "@/lib/tx-expectations";
+import { MEDIATOR_BEFORE_HANDOVER } from "@/lib/mediator-copy";
 import { escrowDomain, handoverTypes, returnTypes } from "@/lib/sign";
 
 type Payload = {
@@ -176,6 +177,9 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
             : "Record the item’s condition. The 24-hour real-time claim window starts after an acknowledged return. An unsigned request needs acknowledgement or resolution."}
         </p>
       </div>
+      {mode === "handover" && Boolean(rental.data) && status === 0 && !tx.writable && (
+        <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>
+      )}
       <div className="split">
         <section className="card">
           <h2>1. Record the condition</h2>
