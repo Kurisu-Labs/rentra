@@ -5,6 +5,7 @@ import { createPublicClient, createWalletClient, hashTypedData, http, keccak256,
 import { sepolia } from "viem/chains";
 import { multicall3Bytecode } from "../node_modules/viem/_esm/constants/contracts.js";
 import { handoverTypes } from "../src/lib/signing-types.ts";
+import { verifyCandidate } from "./deployment-validation.mjs";
 
 const transport = http("http://127.0.0.1:8545");
 const client = createPublicClient({ chain: sepolia, transport });
@@ -39,6 +40,16 @@ async function send(actor, name, functionName, args = []) {
 }
 await send(admin, "RentalItem", "setEscrow", [contracts.RentalEscrow]);
 await send(admin, "Reputation", "setEscrow", [contracts.RentalEscrow]);
+const candidate = { chainId: 11155111, protocolVersion: 2, demoMode: false, deployer: admin, contracts };
+const verified = await verifyCandidate(client, candidate);
+assert.ok(verified.verifiedAtBlock);
+await assert.rejects(() => verifyCandidate(client, { ...candidate, contracts: {
+  ...contracts, RentalItem: contracts.Reputation, Reputation: contracts.RentalItem,
+} }), /Onchain .* does not match/);
+await assert.rejects(() => verifyCandidate(client, { ...candidate, contracts: {
+  ...contracts, Reputation: "0x0000000000000000000000000000000000009999",
+} }), /No deployed bytecode/);
+await writeFile("/tmp/rentra-local-candidate.json", JSON.stringify(candidate, null, 2));
 await send(admin, "Reputation", "setOwnerApproval", [owner, true]);
 for (const actor of [owner, renter]) {
   await send(actor, "MockIDR", "faucet");
@@ -79,4 +90,4 @@ assert.equal(await read("Reputation", "damagesOf", [renter]), 1);
 assert.equal(await read("Reputation", "depositFactorBps", [renter]), 10000);
 const pendingRentalId = await requestRental();
 await writeFile("/tmp/rentra-local-deployment.json", JSON.stringify({ chainId: 11155111, contracts, actors: { admin, owner, renter, mediator }, pendingRentalId: String(pendingRentalId) }, null, 2));
-console.log("Local smoke passed: v2 frontend signature digest, handover, pending return, dispute, bilateral settlement, isolated balances, damage history. Pending browser fixture saved to /tmp/rentra-local-deployment.json.");
+console.log("Local smoke passed: deployment verification and rejection of missing/mismatched contracts, v2 frontend signature digest, handover, pending return, dispute, bilateral settlement, isolated balances, damage history. Pending browser fixture saved to /tmp/rentra-local-deployment.json.");
