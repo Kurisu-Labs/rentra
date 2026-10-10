@@ -18,6 +18,7 @@ import {
   statusLabel,
 } from "@/lib/contracts";
 import { formatIDR, formatWhen, shortAddr, tupleAt } from "@/lib/format";
+import { expectRentalStatus } from "@/lib/tx-expectations";
 import { Countdown } from "@/components/countdown";
 import { ClaimRelease } from "@/components/claim-release";
 
@@ -31,7 +32,7 @@ export default function MyRentalsPage() {
     address: addresses.escrow,
     abi: rentalEscrowAbi,
     functionName: "nextRentalId",
-    query: { enabled: configured },
+    query: { enabled: configured, refetchInterval: 15_000 },
   });
   const demo = useReadContract({
     chainId: chain.id,
@@ -56,7 +57,7 @@ export default function MyRentalsPage() {
       functionName: "rentals",
       args: [id],
     })),
-    query: { enabled: configured && ids.length > 0 },
+    query: { enabled: configured && ids.length > 0, refetchInterval: 15_000 },
   });
 
   const mine = ids.flatMap((id, index) => {
@@ -80,12 +81,16 @@ export default function MyRentalsPage() {
       functionName: "claimDefault",
       args: [id],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) => expectRentalStatus(probe, id, 7));
   }
 
   async function cancel(id: bigint) {
     if (!addresses.escrow) return;
-    await tx.send(addresses.escrow, encodeFunctionData({ abi: rentalEscrowAbi, functionName: "cancel", args: [id] }));
+    await tx.send(
+      addresses.escrow,
+      encodeFunctionData({ abi: rentalEscrowAbi, functionName: "cancel", args: [id] }),
+      (probe) => expectRentalStatus(probe, id, 8),
+    );
   }
 
   return (

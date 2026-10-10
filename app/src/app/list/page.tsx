@@ -9,6 +9,7 @@ import { TransactionFeedback } from "@/components/transaction-feedback";
 import { Icon } from "@/components/icon";
 import { addresses, configured, rentalItemAbi } from "@/lib/contracts";
 import { rpToWei } from "@/lib/format";
+import { expectIncreased } from "@/lib/tx-expectations";
 
 export default function ListPage() {
   const tx = useRentraTx();
@@ -29,7 +30,9 @@ export default function ListPage() {
       functionName: "listItem",
       args: [name.trim(), rpToWei(value), rpToWei(rate), rpToWei(late), Number(grace), Number(floor) * 100],
     });
-    await tx.send(addresses.item, data);
+    const nextIdRead = { address: addresses.item, abi: rentalItemAbi, functionName: "nextId" };
+    const before = await tx.read(nextIdRead);
+    await tx.send(addresses.item, data, (probe) => expectIncreased(probe, nextIdRead, before));
   }
 
   return (

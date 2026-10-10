@@ -8,6 +8,7 @@ import { useRentraTx } from "@/components/use-tx";
 import { addresses, chain, configured, rentalEscrowAbi } from "@/lib/contracts";
 import { canFinalizeClaim, claimSecondsRemaining, formatCountdown, isClaimWindowOpen } from "@/lib/claim-window";
 import { formatIDR, formatWhen, tupleAt } from "@/lib/format";
+import { expectRentalStatus } from "@/lib/tx-expectations";
 
 function useNow(): number {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -57,7 +58,7 @@ export function ClaimRelease({ rentalId }: { rentalId: bigint }) {
       functionName: "finalizeClaim",
       args: [rentalId],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, (probe) => expectRentalStatus(probe, rentalId, 6));
   }
 
   return (

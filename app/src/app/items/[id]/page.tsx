@@ -29,6 +29,7 @@ import {
 } from "@/lib/format";
 import { findSample } from "@/lib/samples";
 import { idrDomain, permitTypes, splitSignature } from "@/lib/sign";
+import { expectIncreased } from "@/lib/tx-expectations";
 
 export default function ItemPage() {
   const params = useParams<{ id: string }>();
@@ -228,9 +229,16 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
   const uncovered = typeof value === "bigint" && deposit !== undefined ? value - deposit : undefined;
 
   async function faucet() {
-    if (!addresses.idr) return;
+    if (!addresses.idr || !address) return;
     const data = encodeFunctionData({ abi: mockIdrAbi, functionName: "faucet" });
-    await tx.send(addresses.idr, data);
+    const balanceRead = {
+      address: addresses.idr,
+      abi: mockIdrAbi,
+      functionName: "balanceOf",
+      args: [address],
+    };
+    const before = await tx.read(balanceRead);
+    await tx.send(addresses.idr, data, (probe) => expectIncreased(probe, balanceRead, before));
   }
 
   async function book() {
@@ -270,7 +278,10 @@ function OnchainItem({ tokenId }: { tokenId: bigint }) {
       functionName: "bookWithPermit",
       args: [tokenId, startUnix, endUnix, total, deadline, v, r, s],
     });
-    await tx.send(addresses.escrow, data);
+    await tx.send(addresses.escrow, data, async (probe) => {
+      const locked = await probe.read({ functionName: "isLocked", args: [tokenId] });
+      return locked === true;
+    });
   }
 
   const total = rent !== undefined && deposit !== undefined ? rent + deposit : undefined;

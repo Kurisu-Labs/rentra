@@ -6,6 +6,7 @@ import { encodeFunctionData, isAddress, zeroAddress } from "viem";
 import type { Hex } from "viem";
 import { addresses, chain, rentalEscrowAbi } from "@/lib/contracts";
 import { formatIDR, formatWhen, rpToWei, tupleAt } from "@/lib/format";
+import { expectRentalStatus } from "@/lib/tx-expectations";
 import { useRentraTx } from "@/components/use-tx";
 import { TransactionFeedback } from "@/components/transaction-feedback";
 import { PhotoHash } from "@/components/photo-hash";
@@ -45,7 +46,37 @@ export function RentalResolution({ rentalId, owner, renter, status }: {
 
   async function send(functionName: string, args: readonly unknown[]) {
     if (!addresses.escrow) return;
-    await tx.send(addresses.escrow, encodeFunctionData({ abi: rentalEscrowAbi, functionName, args }));
+    await tx.send(
+      addresses.escrow,
+      encodeFunctionData({ abi: rentalEscrowAbi, functionName, args }),
+      (probe) => {
+        if (functionName === "acknowledgeReturn") return expectRentalStatus(probe, rentalId, 2);
+        if (functionName === "disputeReturn") return expectRentalStatus(probe, rentalId, 10);
+        if (functionName === "acceptSettlement" || functionName === "resolveClaim") {
+          return expectRentalStatus(probe, rentalId, 6);
+        }
+        if (functionName === "resolveReturn") return expectRentalStatus(probe, rentalId, returned ? 6 : 7);
+        if (functionName === "proposeMediator") {
+          return probe.read({ functionName: "mediations", args: [rentalId] }).then((row) => {
+            return String(tupleAt(row, 0)).toLowerCase() === mediatorInput.toLowerCase();
+          });
+        }
+        if (functionName === "acceptMediator") {
+          return probe.read({ functionName: "mediations", args: [rentalId] }).then((row) => {
+            return String(tupleAt(row, 1)).toLowerCase() === proposed.toLowerCase();
+          });
+        }
+        if (functionName === "proposeSettlement") {
+          return probe.read({ functionName: "settlementOffers", args: [rentalId] }).then((row) => {
+            return (
+              String(tupleAt(row, 0)).toLowerCase() === address?.toLowerCase() &&
+              tupleAt(row, 1) === rpToWei(amount)
+            );
+          });
+        }
+        return Promise.resolve(false);
+      },
+    );
   }
 
   function downloadReceipt() {
