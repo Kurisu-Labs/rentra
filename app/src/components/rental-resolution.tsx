@@ -86,7 +86,6 @@ export function RentalResolution({ rentalId, owner, renter, status }: {
           {isRenter && proposed !== zeroAddress && <button type="button" disabled={disabled} onClick={() => void tx.run(() => send("acceptMediator", [rentalId, proposed]))}>Accept this mediator</button>}
         </>
       )}
-      {status === 2 && claimEnd !== undefined && <p>Claim window closes: <strong>{formatWhen(claimEnd)}</strong> (real time). After this deadline, an uncontested deposit can be released by a transaction.</p>}
       {disputed && responseEnd !== undefined && <p>Initial response deadline: <strong>{formatWhen(responseEnd)}</strong> (real time). Missing this deadline does not settle the claim. Mutual settlement and mediator resolution remain available.</p>}
       {pendingReturn && isOwner && <>
         <button type="button" disabled={disabled} onClick={() => void tx.run(() => send("acknowledgeReturn", [rentalId]))}>Acknowledge physical return</button>

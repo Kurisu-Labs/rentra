@@ -8,6 +8,7 @@ import { encodeFunctionData, isAddress, isHex, zeroAddress } from "viem";
 import type { Hex } from "viem";
 import { PhotoHash } from "@/components/photo-hash";
 import { QrCode } from "@/components/qr-code";
+import { ClaimRelease } from "@/components/claim-release";
 import { RentalResolution } from "@/components/rental-resolution";
 import { useRentraTx } from "@/components/use-tx";
 import { addresses, chain, configured, rentalEscrowAbi, statusLabel } from "@/lib/contracts";
@@ -322,6 +323,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
           )}
         </aside>
       </div>
+      {mode === "return" && status === 2 && <ClaimRelease rentalId={rentalId} />}
       {tx.writable && <RentalResolution rentalId={rentalId} owner={owner} renter={renter} status={status} />}
     </div>
   );

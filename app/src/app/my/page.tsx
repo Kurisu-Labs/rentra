@@ -19,6 +19,7 @@ import {
 } from "@/lib/contracts";
 import { formatIDR, formatWhen, shortAddr, tupleAt } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
+import { ClaimRelease } from "@/components/claim-release";
 
 export default function MyRentalsPage() {
   const router = useRouter();
@@ -77,16 +78,6 @@ export default function MyRentalsPage() {
     const data = encodeFunctionData({
       abi: rentalEscrowAbi,
       functionName: "claimDefault",
-      args: [id],
-    });
-    await tx.send(addresses.escrow, data);
-  }
-
-  async function finalize(id: bigint) {
-    if (!addresses.escrow) return;
-    const data = encodeFunctionData({
-      abi: rentalEscrowAbi,
-      functionName: "finalizeClaim",
       args: [id],
     });
     await tx.send(addresses.escrow, data);
@@ -174,7 +165,6 @@ export default function MyRentalsPage() {
               counterparty={isOwner ? renter : owner}
               pending={tx.pending || !tx.writable}
               onDefault={() => void tx.run(() => claimDefault(id))}
-              onFinalize={() => void tx.run(() => finalize(id))}
               onCancel={() => void tx.run(() => cancel(id))}
             />
           );
@@ -196,7 +186,6 @@ function RentalCard({
   counterparty,
   pending,
   onDefault,
-  onFinalize,
   onCancel,
 }: {
   id: bigint;
@@ -209,7 +198,6 @@ function RentalCard({
   counterparty: string;
   pending: boolean;
   onDefault: () => void;
-  onFinalize: () => void;
   onCancel: () => void;
 }) {
   const expires = useReadContract({
@@ -266,13 +254,9 @@ function RentalCard({
             Claim non-return
           </button>
         )}
-        {status === 2 && (
-          <button type="button" className="secondary" disabled={pending} onClick={onFinalize}>
-            Release uncontested deposit after deadline
-          </button>
-        )}
         {status === 0 && <button type="button" className="secondary" disabled={pending} onClick={onCancel}>Cancel booking & refund</button>}
       </div>
+      {status === 2 && <ClaimRelease rentalId={id} />}
     </article>
   );
 }
