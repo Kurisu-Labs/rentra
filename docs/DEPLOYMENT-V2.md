@@ -40,3 +40,5 @@ Actual gas cost across the six successful transactions: **0.000055900770380195 S
 A funded multi-wallet Sepolia rental acceptance test has **not** been performed. The earlier Anvil browser/signing tests remain local evidence. Owner admission, an available mutually accepted mediator, hosted photo storage, notifications, insurance, and a funded guarantor have not been provisioned. Disputed funds can remain locked without agreement or a responsive mediator.
 
 Frontend defaults now target this v2 instance. Existing hosted builds require a rebuild/redeploy, and any stale address overrides must be removed or updated as a consistent set. No production frontend publication or PR merge is implied by the contract deployment.
+
+A separate [public v2 frontend preview](https://rentra-e6d65lrk4-rakhargos-projects.vercel.app) has since been built and checked against this instance. See [PREVIEW-V2.md](PREVIEW-V2.md) for the exact source commit, target, browser evidence, and remaining acceptance work.
