@@ -16,6 +16,7 @@ contract Reputation {
     uint8 public constant OUTCOME_OK = 0;
     uint8 public constant OUTCOME_LATE = 1;
     uint8 public constant OUTCOME_DEFAULT = 2;
+    uint8 public constant OUTCOME_DAMAGE = 3;
 
     /// @dev Rp500.000. Below this, a rental is recorded but does not earn a discount.
     uint256 public constant MIN_COUNTABLE_VALUE = 500_000 ether;
@@ -39,6 +40,8 @@ contract Reputation {
 
     mapping(address renter => Stats) private _stats;
     mapping(address renter => mapping(address owner => bool)) public countedOwner;
+    mapping(address owner => bool) public approvedOwner;
+    mapping(address renter => uint32) public damagesOf;
 
     event Recorded(
         address indexed renter,
@@ -49,6 +52,7 @@ contract Reputation {
         uint16 depositFactorBps
     );
     event EscrowSet(address indexed escrow);
+    event OwnerApprovalSet(address indexed owner, bool approved);
 
     error NotAdmin();
     error NotEscrow();
@@ -70,6 +74,13 @@ contract Reputation {
         if (escrow_ == address(0)) revert ZeroAddress();
         escrow = escrow_;
         emit EscrowSet(escrow_);
+    }
+
+    /// @notice Manual pilot admission. Approval is not proof of a unique human identity.
+    function setOwnerApproval(address owner, bool approved) external onlyAdmin {
+        if (owner == address(0)) revert ZeroAddress();
+        approvedOwner[owner] = approved;
+        emit OwnerApprovalSet(owner, approved);
     }
 
     /// @notice Plan signature. Records the outcome without unique-owner credit.
@@ -111,26 +122,26 @@ contract Reputation {
     function _record(address renter, uint8 outcome, uint256 valueIDR, address owner) internal {
         if (msg.sender != escrow) revert NotEscrow();
         if (renter == address(0)) revert ZeroAddress();
-        if (outcome > OUTCOME_DEFAULT) revert BadOutcome();
+        if (outcome > OUTCOME_DAMAGE) revert BadOutcome();
 
         Stats storage s = _stats[renter];
         if (outcome == OUTCOME_OK) {
             s.ok += 1;
-            if (
-                !s.defaulted && valueIDR >= MIN_COUNTABLE_VALUE && owner != address(0)
-                    && !countedOwner[renter][owner]
-            ) {
+            if (!s.defaulted && valueIDR >= MIN_COUNTABLE_VALUE && approvedOwner[owner] && !countedOwner[renter][owner])
+            {
                 countedOwner[renter][owner] = true;
                 s.uniqueOwners += 1;
             }
-            if (valueIDR >= MIN_COUNTABLE_VALUE && valueIDR > s.maxSuccessfulValue) {
+            if (approvedOwner[owner] && valueIDR >= MIN_COUNTABLE_VALUE && valueIDR > s.maxSuccessfulValue) {
                 s.maxSuccessfulValue = valueIDR;
             }
         } else if (outcome == OUTCOME_LATE) {
             s.late += 1;
-        } else {
+        } else if (outcome == OUTCOME_DEFAULT) {
             s.defaults += 1;
             s.defaulted = true;
+        } else {
+            damagesOf[renter] += 1;
         }
 
         s.score = _score(s);

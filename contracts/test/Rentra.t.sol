@@ -41,6 +41,7 @@ contract RentraTest is Test {
         escrow = new RentalEscrow(address(idr), address(item), address(reputation), false);
         item.setEscrow(address(escrow));
         reputation.setEscrow(address(escrow));
+        reputation.setOwnerApproval(owner, true);
 
         _fund(renter);
         _fund(owner);
@@ -441,6 +442,7 @@ contract RentraTest is Test {
         address a = makeAddr("a");
         address lowOwner = makeAddr("low");
         address rich = makeAddr("rich");
+        rep.setOwnerApproval(rich, true);
 
         rep.record(a, rep.OUTCOME_OK(), 100_000 ether, lowOwner);
         assertEq(rep.depositFactorBps(a), 10_000);
@@ -459,10 +461,11 @@ contract RentraTest is Test {
         // 3-arg form records the outcome but grants no owner credit.
         rep.record(a, rep.OUTCOME_OK(), 3_000_000 ether);
         assertEq(rep.uniqueOwnersOf(a), 1);
-        assertEq(rep.maxSuccessfulValue(a), 3_000_000 ether);
+        assertEq(rep.maxSuccessfulValue(a), 600_000 ether);
 
         address farmer = makeAddr("farmer");
         for (uint256 i = 0; i < 8; i++) {
+            rep.setOwnerApproval(address(uint160(0x1000 + i)), true);
             rep.record(farmer, rep.OUTCOME_OK(), 1_000_000 ether, address(uint160(0x1000 + i)));
         }
         assertEq(rep.depositFactorBps(farmer), 3_000);
@@ -549,6 +552,28 @@ contract RentraTest is Test {
         assertEq(escrow.quoteDeposit(tokenId, renter), 2_850_000 ether);
     }
 
+    function test_unapprovedOwner_cannotEarnDiscount() public {
+        reputation.setOwnerApproval(owner, false);
+        uint256 id = _returnedRental();
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
+        escrow.finalizeClaim(id);
+        assertEq(reputation.depositFactorBps(renter), 10_000, "unapproved owner must not grant discounts");
+        assertEq(reputation.maxSuccessfulValue(renter), 0);
+    }
+
+    function test_ownerApproval_isRestrictedAndRevocable() public {
+        vm.prank(renter);
+        vm.expectRevert(Reputation.NotAdmin.selector);
+        reputation.setOwnerApproval(renter, true);
+        vm.expectRevert(Reputation.ZeroAddress.selector);
+        reputation.setOwnerApproval(address(0), true);
+        reputation.setOwnerApproval(owner, false);
+        vm.prank(address(escrow));
+        reputation.record(renter, 0, VALUE, owner);
+        assertEq(reputation.maxSuccessfulValue(renter), 0);
+        assertEq(reputation.uniqueOwnersOf(renter), 0);
+    }
+
     function _fund(address who) internal {
         vm.prank(who);
         idr.faucet();
@@ -565,6 +590,7 @@ contract RentraTest is Test {
         (address who, uint256 pk) = makeAddrAndKey(name);
         _keys[who] = pk;
         _fund(who);
+        reputation.setOwnerApproval(who, true);
         tokenId = _list(who);
     }
 
