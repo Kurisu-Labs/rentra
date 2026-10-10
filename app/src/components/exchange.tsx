@@ -177,7 +177,7 @@ export function Exchange({ mode, rentalId }: { mode: "handover" | "return"; rent
             : "Record the item’s condition. The 24-hour real-time claim window starts after an acknowledged return. An unsigned request needs acknowledgement or resolution."}
         </p>
       </div>
-      {mode === "handover" && Boolean(rental.data) && status === 0 && !tx.writable && (
+      {mode === "handover" && Boolean(rental.data) && status === 0 && (
         <p className="notice">{MEDIATOR_BEFORE_HANDOVER}</p>
       )}
       <div className="split">
